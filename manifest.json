@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "JATTUMNN",
+  "version": "0.1",
+  "description": "Just Another Translate Tool U Might Not Need",
+  "permissions": ["activeTab"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"]
+    }
+  ],
+  "commands": {
+    "log-hello": {
+      "suggested_key": {
+        "default": "Alt+A"
+      },
+      "description": "Log 'Hello' in the active tab"
+    }
+  }
+}
