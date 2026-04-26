@@ -3,7 +3,7 @@
   "name": "JATTUMNN",
   "version": "0.1",
   "description": "Just Another Translate Tool U Might Not Need",
-  "permissions": ["activeTab"],
+  "permissions": ["activeTab", "storage"],
   "background": {
     "service_worker": "background.js"
   },
@@ -14,11 +14,15 @@
     }
   ],
   "commands": {
-    "log-hello": {
+    "translate-text": {
       "suggested_key": {
         "default": "Alt+A"
       },
-      "description": "Log 'Hello' in the active tab"
+      "description": "Translate hovered text"
     }
+  },
+  "options_ui": {
+    "page": "ui/settings.html",
+    "open_in_tab": true
   }
 }

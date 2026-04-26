@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JATTUMNN Settings</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div class="settings-container">
+    <h1>⚙️ JATTUMNN</h1>
+    
+    <div class="field">
+      <label>Username</label>
+      <div class="field-row">
+        <input type="text" id="username" placeholder="Enter username" readonly>
+        <button type="button" class="edit-btn" data-field="username">Edit</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>User ID (auto‑generated)</label>
+      <input type="text" id="userId" readonly>
+    </div>
+
+    <div class="field">
+      <label>Email</label>
+      <div class="field-row">
+        <input type="email" id="email" placeholder="user@example.com" readonly>
+        <button type="button" class="edit-btn" data-field="email">Edit</button>
+      </div>
+    </div>
+
+    <hr>
+    
+    <button id="clearCacheBtn" class="clear-btn">Clear Cache</button>
+    <div id="statusMsg" class="status"></div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
