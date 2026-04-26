@@ -150,3 +150,140 @@ hr {
   border-color: #333;
   margin: 1.5rem 0 0.5rem;
 }
+
+.model-select {
+  width: 100%;
+  background-color: #0d0d0d;
+  border: 1px solid #333;
+  color: #e0e0e0;
+  font-family: inherit;
+  font-size: 0.95rem;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.model-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+}
+
+.model-select option {
+  background-color: #0d0d0d;
+  color: #e0e0e0;
+}
+
+.refresh-btn {
+  background-color: #2a2a2a;
+  color: #ccc;
+  border: 1px solid #444;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.refresh-btn:hover {
+  background-color: #3a3a3a;
+  color: white;
+}
+
+.model-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.helper-note {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 0.5rem;
+  line-height: 1.4;
+}
+
+.helper-note a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.helper-note a:hover {
+  text-decoration: underline;
+}
+
+.description {
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  color: #aaa;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  border-left: 3px solid #3b82f6;
+  padding-left: 1rem;
+  background: #111;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.description p {
+  margin: 0.5rem 0;
+}
+
+.description .credit {
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  text-align: right;
+  border-top: 1px solid #2a2a2a;
+  padding-top: 0.75rem;
+}
+
+.description a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.description a:hover {
+  text-decoration: underline;
+}
+
+kbd {
+  background-color: #2a2a2a;
+  border-radius: 4px;
+  border: 1px solid #444;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.2);
+  color: #eee;
+  display: inline-block;
+  font-family: monospace;
+  font-size: 0.8em;
+  padding: 0.2rem 0.4rem;
+  margin: 0 0.2rem;
+}
+
+.cache-panel {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background-color: #0d0d0d;
+  border-radius: 8px;
+  border: 1px solid #333;
+}
+.cache-stats {
+  margin: 8px 0;
+  font-size: 0.85rem;
+  color: #aaa;
+}
+.progress-bar {
+  background-color: #2a2a2a;
+  border-radius: 10px;
+  height: 8px;
+  overflow: hidden;
+  margin: 8px 0;
+}
+.progress-fill {
+  background-color: #3b82f6;
+  width: 0%;
+  height: 100%;
+  border-radius: 10px;
+  transition: width 0.2s;
+}
