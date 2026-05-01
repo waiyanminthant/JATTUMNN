@@ -14,24 +14,11 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="settings">Settings</button>
       <button class="tab-btn" data-tab="prompt">Prompt</button>
+      <button class="tab-btn" data-tab="about">About</button>
     </div>
 
     <!-- Settings Tab -->
     <div id="settings-tab" class="tab-content active">
-      <div class="description">
-        <p>
-          JATTUMNN is a lightweight Chrome extension that lets you translate any text on the web with a single keyboard shortcut. 
-          Just hover over the text you want to translate and press <kbd>Alt</kbd> + <kbd>A</kbd> (or your chosen shortcut). 
-          It will be translated to English using the DeepSeek AI model of your choice.
-        </p>
-        <p class="credit">
-          Developed by 
-          <a href="https://github.com/waiyanminthant" target="_blank" rel="noopener noreferrer">BattlePants</a>
-        </p>
-        <p class="credit">
-          <a href="https://github.com/waiyanminthant/JATTUMNN" target="_blank" rel="noopener noreferrer">🔗 View on GitHub</a>
-        </p>
-      </div>
 
       <div class="field">
         <label>👤 Username</label>
@@ -98,8 +85,8 @@
     <!-- Prompt Tab -->
     <div id="prompt-tab" class="tab-content">
       <div class="field">
-        <label>📝 Custom System Prompt</label>
-        <textarea id="customPrompt" rows="6" placeholder="You are a translator. Translate the following text to English. Preserve formatting and only output the translated text, no explanations."></textarea>
+        <label>📝 English Translation Prompt</label>
+        <textarea id="customPrompt" rows="6" placeholder="Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations."></textarea>
         <div class="helper-note">
           💡 This prompt is sent to the AI model before each translation. 
           Modify it to change translation style, language, or add extra instructions.
@@ -109,6 +96,30 @@
         <button id="savePromptBtn" class="save-btn">💾 Save Prompt</button>
       </div>
       <div id="promptStatus" class="status"></div>
+    </div>
+
+      <!-- About Tab -->
+      <div id="about-tab" class="tab-content">
+        <div class="field">
+          <div class="description">
+            <p>
+              JATTUMNN is a lightweight Chrome extension that lets you translate any text on the web with a single keyboard shortcut. 
+              Just hover over the text you want to translate and press <kbd>Alt</kbd> + <kbd>A</kbd> (or your chosen shortcut). 
+              It will be translated to English using the DeepSeek AI model of your choice.
+            </p>
+            <p class="credit">
+              Developed by 
+              <a href="https://github.com/waiyanminthant" target="_blank" rel="noopener noreferrer">BattlePants</a>
+            </p>
+            <p class="credit">
+              <a href="https://github.com/waiyanminthant/JATTUMNN" target="_blank" rel="noopener noreferrer">🔗 View on GitHub</a>
+            </p>
+            <p class="credit">
+              <a href="https://github.com/waiyanminthant/JATTUMNN/issues" target="_blank" rel="noopener noreferrer">🚨 Report an Issue</a>
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 

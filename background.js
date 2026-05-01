@@ -25,12 +25,24 @@ chrome.commands.onCommand.addListener(async (command) => {
           return;
         }
         console.log("Original text:", hoveredText);
-        const translatedText = await translateText(hoveredText);
-        await chrome.tabs.sendMessage(activeTab.id, {
-          action: "displayTranslation",
-          requestId: requestId,
-          translatedText: translatedText,
-        });
+        
+        try {
+          const translatedText = await translateText(hoveredText);
+          await chrome.tabs.sendMessage(activeTab.id, {
+            action: "displayTranslation",
+            requestId: requestId,
+            translatedText: translatedText,
+            error: null
+          });
+        } catch (translationError) {
+          console.error("Translation error:", translationError);
+          await chrome.tabs.sendMessage(activeTab.id, {
+            action: "displayTranslation",
+            requestId: requestId,
+            translatedText: null,
+            error: translationError.message || "Translation failed"
+          });
+        }
       } catch (error) {
         console.error(error);
       }
@@ -59,17 +71,12 @@ async function translateText(text) {
   }
 
   const { apiKey, aiModel, customPrompt } = await chrome.storage.sync.get(["apiKey", "aiModel", "customPrompt"]);
-  if (!apiKey) throw new Error("API key not set.");
-  if (!aiModel) throw new Error("AI model not selected.");
+  if (!apiKey) throw new Error("API key not set. Please configure in settings.");
+  if (!aiModel) throw new Error("AI model not selected. Please configure in settings.");
 
-  let systemPrompt = customPrompt && customPrompt.trim() !== "" 
-    ? customPrompt.trim() 
-    : "You are a translator. Translate the following text to English. Preserve formatting and only output the translated text, no explanations.";
-
-  // Add separator preservation instruction if the separator appears in the text
-  if (text.includes('__SEP__')) {
-    systemPrompt += " The input contains the exact separator string '__SEP__'. You MUST preserve this separator unchanged in the output. Do not translate, remove, or modify it.";
-  }
+let systemPrompt = customPrompt && customPrompt.trim() !== "" 
+  ? customPrompt.trim() 
+  : "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
 
   const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
     method: "POST",
@@ -90,6 +97,9 @@ async function translateText(text) {
 
   if (!response.ok) {
     let errorMsg = `API error: ${response.status}`;
+    if (response.status === 401) errorMsg = "Invalid API key. Please check your DeepSeek API key.";
+    if (response.status === 429) errorMsg = "Rate limit exceeded. Please wait and try again.";
+    if (response.status === 402) errorMsg = "Insufficient balance. Please top up your DeepSeek account.";
     try {
       const errorData = await response.json();
       errorMsg = errorData.error?.message || errorMsg;
@@ -99,7 +109,7 @@ async function translateText(text) {
 
   const data = await response.json();
   const translated = data.choices[0]?.message?.content?.trim();
-  if (!translated) throw new Error("No translation returned");
+  if (!translated) throw new Error("No translation returned from API");
 
   await translationCache.set(text, translated);
   console.log("Cached translation for:", text.substring(0, 50));

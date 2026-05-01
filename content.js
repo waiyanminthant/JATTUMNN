@@ -1,6 +1,5 @@
 // content.js – JATTUMNN
-// Replaces all non‑empty text nodes inside the container, preserving HTML structure.
-// Uses a fixed separator that the AI is instructed to preserve.
+// Replaces all non‑empty text nodes. Uses fixed separator __SEP__.
 
 const JATTUMNN_SEPARATOR = '__SEP__';
 
@@ -66,6 +65,34 @@ function hideSpinner(container) {
     const spinner = container.querySelector('.jattumnn-spinner');
     if (spinner) spinner.remove();
   }
+}
+
+function showError(container, errorMessage) {
+  if (!container) return;
+  // Remove existing error message
+  const existingError = container.querySelector('.jattumnn-error');
+  if (existingError) existingError.remove();
+  
+  const errorSpan = document.createElement('span');
+  errorSpan.className = 'jattumnn-error';
+  errorSpan.textContent = `⚠️ ${errorMessage}`;
+  errorSpan.style.cssText = `
+    display: inline-block;
+    color: #f87171;
+    background-color: rgba(0,0,0,0.7);
+    font-size: 0.8em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 8px;
+    font-family: monospace;
+    white-space: nowrap;
+  `;
+  container.appendChild(errorSpan);
+  
+  // Auto-hide after 5 seconds
+  setTimeout(() => {
+    if (errorSpan.parentNode) errorSpan.remove();
+  }, 5000);
 }
 
 function revertTranslation(container, textNodes) {
@@ -146,19 +173,30 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "displayTranslation") {
-    const { requestId, translatedText } = request;
+    const { requestId, translatedText, error } = request;
     const pending = activeRequests.get(requestId);
+    
     if (pending && pending.element) {
-      const elapsed = (performance.now() - pending.startTime).toFixed(2);
-      console.log(`[JATTUMNN] Translation completed in ${elapsed} ms`);
-
-      const separator = pending.separator;
-      const escapedSep = separator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const segments = translatedText.split(new RegExp(escapedSep));
-      const cleanedSegments = segments.filter(seg => seg !== undefined);
-      applyTranslation(pending.element, pending.textNodes, cleanedSegments);
-      hideSpinner(pending.element);
+      if (error) {
+        // Error occurred during translation
+        console.error(`[JATTUMNN] Translation error: ${error}`);
+        hideSpinner(pending.element);
+        showError(pending.element, `Error: ${error}`);
+        // Do NOT modify the text – keep original
+      } else if (translatedText) {
+        // Success – apply translation
+        const elapsed = (performance.now() - pending.startTime).toFixed(2);
+        console.log(`[JATTUMNN] Translation completed in ${elapsed} ms`);
+        
+        const separator = pending.separator;
+        const escapedSep = separator.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const segments = translatedText.split(new RegExp(escapedSep));
+        const cleanedSegments = segments.filter(seg => seg !== undefined);
+        applyTranslation(pending.element, pending.textNodes, cleanedSegments);
+        hideSpinner(pending.element);
+      }
     }
+    
     activeRequests.delete(requestId);
     sendResponse({ received: true });
     return true;

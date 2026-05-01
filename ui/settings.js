@@ -1,3 +1,6 @@
+// settings.js – JATTUMNN
+// Updated with English Translation Prompt
+
 function showStatus(message, isError = false) {
   const statusDiv = document.getElementById('statusMsg');
   statusDiv.textContent = message;
@@ -10,7 +13,7 @@ function generateUUID() {
 }
 
 async function loadSettings() {
-  const result = await chrome.storage.sync.get(['username', 'userId', 'email', 'apiKey', 'aiModel']);
+  const result = await chrome.storage.sync.get(['username', 'userId', 'email', 'apiKey', 'aiModel', 'customPrompt']);
   
   if (!result.userId) {
     const newId = generateUUID();
@@ -28,10 +31,18 @@ async function loadSettings() {
     aiModelSelect.value = result.aiModel;
   }
   
+  // Load custom prompt (with condensed default if not set)
+  const promptTextarea = document.getElementById('customPrompt');
+  if (result.customPrompt) {
+    promptTextarea.value = result.customPrompt;
+  } else {
+    // Set condensed default prompt
+    promptTextarea.value = "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
+  }
+  
   // If API key exists, enable refresh button and try to load models automatically
   if (result.apiKey && result.apiKey.trim() !== '') {
     document.getElementById('refreshModelsBtn').disabled = false;
-    // Optionally auto-fetch models on load (silent)
     fetchModels(result.apiKey, false);
   } else {
     document.getElementById('refreshModelsBtn').disabled = true;
@@ -49,10 +60,8 @@ async function saveFieldAndLock(fieldId) {
     btn.textContent = '✏️ Edit';
     showStatus(`${fieldId === 'apiKey' ? 'API Key' : fieldId.charAt(0).toUpperCase() + fieldId.slice(1)} saved!`, false);
     
-    // If API key was saved, enable refresh button and optionally fetch models
     if (fieldId === 'apiKey' && value && value.trim() !== '') {
       document.getElementById('refreshModelsBtn').disabled = false;
-      // Fetch models automatically after saving a valid-looking key (optional)
       fetchModels(value, true);
     } else if (fieldId === 'apiKey' && (!value || value.trim() === '')) {
       document.getElementById('refreshModelsBtn').disabled = true;
@@ -81,7 +90,6 @@ function setupField(fieldId) {
   });
 }
 
-// Fetch models from DeepSeek API
 async function fetchModels(apiKey, showStatusMsg = true) {
   const select = document.getElementById('aiModel');
   const refreshBtn = document.getElementById('refreshModelsBtn');
@@ -120,20 +128,16 @@ async function fetchModels(apiKey, showStatusMsg = true) {
       select.innerHTML = '<option value="">⚠️ No models found for this API key</option>';
       if (showStatusMsg) showStatus('No DeepSeek models returned – your API key may have limited access', true);
     } else {
-      // Populate dropdown
       select.innerHTML = models.map(m => `<option value="${m.id}">${m.id}</option>`).join('');
       
-      // Get currently saved model (if any)
       const stored = await chrome.storage.sync.get('aiModel');
       let selectedModel = stored.aiModel;
       
-      // If saved model is not in the new list, default to first model
       if (!selectedModel || !models.some(m => m.id === selectedModel)) {
         selectedModel = models[0].id;
         await chrome.storage.sync.set({ aiModel: selectedModel });
         if (showStatusMsg) showStatus(`Default model "${selectedModel}" selected and saved`, false);
       } else {
-        // Saved model exists and is valid
         if (showStatusMsg) showStatus(`Loaded ${models.length} model(s)`, false);
       }
       
@@ -149,7 +153,6 @@ async function fetchModels(apiKey, showStatusMsg = true) {
   }
 }
 
-// Save AI model when dropdown changes
 async function saveAiModel() {
   const select = document.getElementById('aiModel');
   const selectedModel = select.value;
@@ -164,19 +167,17 @@ async function saveAiModel() {
 }
 
 async function clearCache() {
-  const confirmed = confirm('🗑️ Are you sure you want to clear all user data?\nThis will reset your username, email, API key, and custom prompt.');
+  const confirmed = confirm('🗑️ Are you sure you want to clear all user data?\nThis will reset your username, email, API key, and English translation prompt.');
   if (!confirmed) return;
   
   try {
-    // Clear user settings (keep userId and optional aiModel? we decide to clear only these)
     await chrome.storage.sync.set({ 
       username: '', 
       email: '', 
       apiKey: '',
-      customPrompt: ''   // remove custom prompt -> use default
+      customPrompt: 'Translate to English. Keep formatting, spacing, and the separator \'__SEP__\' unchanged. Output only the translation, no explanations.'
     });
     
-    // Reset input fields
     const usernameInput = document.getElementById('username');
     const emailInput = document.getElementById('email');
     const apiKeyInput = document.getElementById('apiKey');
@@ -184,14 +185,12 @@ async function clearCache() {
     if (usernameInput) usernameInput.value = '';
     if (emailInput) emailInput.value = '';
     if (apiKeyInput) apiKeyInput.value = '';
-    if (promptTextarea) promptTextarea.value = '';
+    if (promptTextarea) promptTextarea.value = 'Translate to English. Keep formatting, spacing, and the separator \'__SEP__\' unchanged. Output only the translation, no explanations.';
     
-    // Lock fields and reset edit buttons
     makeFieldReadOnly('username');
     makeFieldReadOnly('email');
     makeFieldReadOnly('apiKey');
     
-    // Disable model refresh and clear dropdown (since API key is gone)
     const refreshBtn = document.getElementById('refreshModelsBtn');
     if (refreshBtn) refreshBtn.disabled = true;
     const modelSelect = document.getElementById('aiModel');
@@ -201,9 +200,7 @@ async function clearCache() {
     }
     
     showStatus('User data cleared!', false);
-    
-    // Optionally show a status in prompt tab
-    showPromptStatus('Custom prompt reset to default', false);
+    showPromptStatus('English translation prompt reset to default', false);
     
   } catch (error) {
     console.error('Clear cache error:', error);
@@ -211,44 +208,21 @@ async function clearCache() {
   }
 }
 
-// Event listeners
-document.addEventListener('DOMContentLoaded', () => {
-  loadSettings();
-  document.getElementById('clearCacheBtn').addEventListener('click', clearCache);
-  setupField('username');
-  setupField('email');
-  setupField('apiKey');
-  updateCacheStats();
-  
-  const refreshBtn = document.getElementById('refreshModelsBtn');
-  refreshBtn.addEventListener('click', async () => {
-    const apiKey = document.getElementById('apiKey').value;
-    if (!apiKey || apiKey.trim() === '') {
-      showStatus('API key is empty. Please enter and save your DeepSeek API key first.', true);
-      return;
-    }
-    await fetchModels(apiKey, true);
-  });
-  
-  const aiModelSelect = document.getElementById('aiModel');
-  aiModelSelect.addEventListener('change', saveAiModel);
-});
+function makeFieldReadOnly(fieldId) {
+  const input = document.getElementById(fieldId);
+  const btn = document.querySelector(`.edit-btn[data-field="${fieldId}"]`);
+  if (input) {
+    input.setAttribute('readonly', true);
+    if (btn) btn.textContent = '✏️ Edit';
+  }
+}
 
-document.getElementById('clearTransCacheBtn')?.addEventListener('click', async () => {
-  const response = await chrome.runtime.sendMessage({ action: "clearTranslationCache" });
-  if (response.success) showStatus("Translation cache cleared", false);
-  else showStatus("Failed to clear cache", true);
-});
-
-// ---- Translation Cache Statistics ----
 async function updateCacheStats() {
   try {
-    // Get all keys that start with 'trans_'
     const all = await chrome.storage.local.get(null);
     const transKeys = Object.keys(all).filter(k => k.startsWith('trans_'));
     const entryCount = transKeys.length;
 
-    // Calculate total approximate size (in bytes)
     let totalBytes = 0;
     for (const key of transKeys) {
       totalBytes += (key.length + (all[key]?.length || 0));
@@ -272,7 +246,6 @@ async function clearTranslationCache() {
   if (!confirmed) return;
 
   try {
-    // Send message to background to clear the cache
     const response = await chrome.runtime.sendMessage({ action: 'clearTranslationCache' });
     if (response?.success) {
       showStatus('Translation cache cleared', false);
@@ -285,11 +258,6 @@ async function clearTranslationCache() {
   }
 }
 
-// Event listeners for cache panel
-document.getElementById('clearTransCacheBtn')?.addEventListener('click', clearTranslationCache);
-document.getElementById('refreshCacheStatsBtn')?.addEventListener('click', updateCacheStats);
-
-// ----- Tab switching -----
 function switchTab(tabId) {
   document.querySelectorAll('.tab-content').forEach(tab => {
     tab.classList.remove('active');
@@ -301,21 +269,29 @@ function switchTab(tabId) {
   document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
 }
 
-// ----- Load and save custom prompt -----
 async function loadPrompt() {
   const { customPrompt } = await chrome.storage.sync.get('customPrompt');
   const textarea = document.getElementById('customPrompt');
   if (textarea) {
-    textarea.value = customPrompt || '';
+    if (customPrompt) {
+      textarea.value = customPrompt;
+    } else {
+      // Set condensed default
+      textarea.value = "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
+    }
   }
 }
 
 async function savePrompt() {
   const textarea = document.getElementById('customPrompt');
   const customPrompt = textarea.value.trim();
+  if (!customPrompt) {
+    showPromptStatus('Prompt cannot be empty', true);
+    return;
+  }
   try {
     await chrome.storage.sync.set({ customPrompt });
-    showPromptStatus('Prompt saved!', false);
+    showPromptStatus('English translation prompt saved!', false);
   } catch (error) {
     showPromptStatus('Failed to save prompt', true);
   }
@@ -330,19 +306,37 @@ function showPromptStatus(message, isError) {
   }
 }
 
-// ----- In DOMContentLoaded, add tab listeners and prompt loading -----
 document.addEventListener('DOMContentLoaded', async () => {
-  // ... existing loadSettings, updateCacheStats, etc. ...
+  await loadSettings();
+  await updateCacheStats();
+  await loadPrompt();
   
-  // Tab switching
+  document.getElementById('clearCacheBtn').addEventListener('click', clearCache);
+  document.getElementById('clearTransCacheBtn')?.addEventListener('click', clearTranslationCache);
+  document.getElementById('refreshCacheStatsBtn')?.addEventListener('click', updateCacheStats);
+  document.getElementById('savePromptBtn')?.addEventListener('click', savePrompt);
+  
+  setupField('username');
+  setupField('email');
+  setupField('apiKey');
+  
+  const refreshBtn = document.getElementById('refreshModelsBtn');
+  refreshBtn.addEventListener('click', async () => {
+    const apiKey = document.getElementById('apiKey').value;
+    if (!apiKey || apiKey.trim() === '') {
+      showStatus('API key is empty. Please enter and save your DeepSeek API key first.', true);
+      return;
+    }
+    await fetchModels(apiKey, true);
+  });
+  
+  const aiModelSelect = document.getElementById('aiModel');
+  aiModelSelect.addEventListener('change', saveAiModel);
+  
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tabId = btn.getAttribute('data-tab');
       switchTab(tabId);
     });
   });
-  
-  // Load prompt
-  await loadPrompt();
-  document.getElementById('savePromptBtn')?.addEventListener('click', savePrompt);
 });
