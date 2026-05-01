@@ -164,38 +164,50 @@ async function saveAiModel() {
 }
 
 async function clearCache() {
-  const confirmed = confirm('🗑️ Are you sure you want to clear all cached data?\nThis will reset your username, email, and API key. AI model will not be cleared.');
+  const confirmed = confirm('🗑️ Are you sure you want to clear all user data?\nThis will reset your username, email, API key, and custom prompt.');
   if (!confirmed) return;
   
   try {
-    await chrome.storage.sync.set({ username: '', email: '', apiKey: '' });
+    // Clear user settings (keep userId and optional aiModel? we decide to clear only these)
+    await chrome.storage.sync.set({ 
+      username: '', 
+      email: '', 
+      apiKey: '',
+      customPrompt: ''   // remove custom prompt -> use default
+    });
+    
+    // Reset input fields
     const usernameInput = document.getElementById('username');
     const emailInput = document.getElementById('email');
     const apiKeyInput = document.getElementById('apiKey');
-    usernameInput.value = '';
-    emailInput.value = '';
-    apiKeyInput.value = '';
-    usernameInput.setAttribute('readonly', true);
-    emailInput.setAttribute('readonly', true);
-    apiKeyInput.setAttribute('readonly', true);
+    const promptTextarea = document.getElementById('customPrompt');
+    if (usernameInput) usernameInput.value = '';
+    if (emailInput) emailInput.value = '';
+    if (apiKeyInput) apiKeyInput.value = '';
+    if (promptTextarea) promptTextarea.value = '';
     
-    const usernameBtn = document.querySelector('.edit-btn[data-field="username"]');
-    const emailBtn = document.querySelector('.edit-btn[data-field="email"]');
-    const apiKeyBtn = document.querySelector('.edit-btn[data-field="apiKey"]');
-    if (usernameBtn) usernameBtn.textContent = '✏️ Edit';
-    if (emailBtn) emailBtn.textContent = '✏️ Edit';
-    if (apiKeyBtn) apiKeyBtn.textContent = '✏️ Edit';
+    // Lock fields and reset edit buttons
+    makeFieldReadOnly('username');
+    makeFieldReadOnly('email');
+    makeFieldReadOnly('apiKey');
     
-    // Disable model refresh and clear dropdown
-    document.getElementById('refreshModelsBtn').disabled = true;
+    // Disable model refresh and clear dropdown (since API key is gone)
+    const refreshBtn = document.getElementById('refreshModelsBtn');
+    if (refreshBtn) refreshBtn.disabled = true;
     const modelSelect = document.getElementById('aiModel');
-    modelSelect.innerHTML = '<option value="">-- Enter API key --</option>';
-    modelSelect.disabled = true;
+    if (modelSelect) {
+      modelSelect.innerHTML = '<option value="">-- Enter API key --</option>';
+      modelSelect.disabled = true;
+    }
     
-    showStatus('Cache cleared!', false);
+    showStatus('User data cleared!', false);
+    
+    // Optionally show a status in prompt tab
+    showPromptStatus('Custom prompt reset to default', false);
+    
   } catch (error) {
     console.error('Clear cache error:', error);
-    showStatus('Failed to clear cache', true);
+    showStatus('Failed to clear user data', true);
   }
 }
 
@@ -276,3 +288,61 @@ async function clearTranslationCache() {
 // Event listeners for cache panel
 document.getElementById('clearTransCacheBtn')?.addEventListener('click', clearTranslationCache);
 document.getElementById('refreshCacheStatsBtn')?.addEventListener('click', updateCacheStats);
+
+// ----- Tab switching -----
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  document.getElementById(`${tabId}-tab`).classList.add('active');
+  document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
+}
+
+// ----- Load and save custom prompt -----
+async function loadPrompt() {
+  const { customPrompt } = await chrome.storage.sync.get('customPrompt');
+  const textarea = document.getElementById('customPrompt');
+  if (textarea) {
+    textarea.value = customPrompt || '';
+  }
+}
+
+async function savePrompt() {
+  const textarea = document.getElementById('customPrompt');
+  const customPrompt = textarea.value.trim();
+  try {
+    await chrome.storage.sync.set({ customPrompt });
+    showPromptStatus('Prompt saved!', false);
+  } catch (error) {
+    showPromptStatus('Failed to save prompt', true);
+  }
+}
+
+function showPromptStatus(message, isError) {
+  const statusDiv = document.getElementById('promptStatus');
+  if (statusDiv) {
+    statusDiv.textContent = message;
+    statusDiv.style.color = isError ? '#f87171' : '#3b82f6';
+    setTimeout(() => { statusDiv.textContent = ''; }, 2000);
+  }
+}
+
+// ----- In DOMContentLoaded, add tab listeners and prompt loading -----
+document.addEventListener('DOMContentLoaded', async () => {
+  // ... existing loadSettings, updateCacheStats, etc. ...
+  
+  // Tab switching
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tabId = btn.getAttribute('data-tab');
+      switchTab(tabId);
+    });
+  });
+  
+  // Load prompt
+  await loadPrompt();
+  document.getElementById('savePromptBtn')?.addEventListener('click', savePrompt);
+});

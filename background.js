@@ -77,22 +77,21 @@ async function checkForActiveTab() {
 }
 
 async function translateText(text) {
-  // 1. Check persistent cache
+  // Check persistent cache first
   const cached = await translationCache.get(text);
   if (cached) {
     console.log("Using cached translation for:", text.substring(0, 50));
     return cached;
   }
 
-  // 2. Get API key and model from storage
-  const { apiKey, aiModel } = await chrome.storage.sync.get([
-    "apiKey",
-    "aiModel",
-  ]);
+  const { apiKey, aiModel, customPrompt } = await chrome.storage.sync.get(["apiKey", "aiModel", "customPrompt"]);
   if (!apiKey) throw new Error("API key not set.");
   if (!aiModel) throw new Error("AI model not selected.");
 
-  // 3. Call DeepSeek API
+  const systemPrompt = customPrompt && customPrompt.trim() !== "" 
+    ? customPrompt.trim() 
+    : "You are a translator. Translate the following text to English. Preserve formatting and only output the translated text, no explanations.";
+
   const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -102,12 +101,8 @@ async function translateText(text) {
     body: JSON.stringify({
       model: aiModel,
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a translator. Translate the following text to English. Preserve formatting and only output the translated text, no explanations.",
-        },
-        { role: "user", content: text },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: text }
       ],
       temperature: 0.3,
       max_tokens: 2000,

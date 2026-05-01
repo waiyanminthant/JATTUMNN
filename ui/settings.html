@@ -1,88 +1,81 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>JATTUMNN Settings</title>
-    <link rel="stylesheet" href="settings.css" />
-  </head>
-  <body>
-    <div class="settings-container">
-      <h1>⚙️ JATTUMNN</h1>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JATTUMNN Settings</title>
+  <link rel="stylesheet" href="settings.css">
+</head>
+<body>
+  <div class="settings-container">
+    <h1>⚙️ JATTUMNN</h1>
+
+    <!-- Tab headers -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="settings">Settings</button>
+      <button class="tab-btn" data-tab="prompt">Prompt</button>
+    </div>
+
+    <!-- Settings Tab -->
+    <div id="settings-tab" class="tab-content active">
+      <div class="description">
+        <p>
+          JATTUMNN is a lightweight Chrome extension that lets you translate any text on the web with a single keyboard shortcut. 
+          Just hover over the text you want to translate and press <kbd>Alt</kbd> + <kbd>A</kbd> (or your chosen shortcut). 
+          It will be translated to English using the DeepSeek AI model of your choice.
+        </p>
+        <p class="credit">
+          Developed by 
+          <a href="https://github.com/waiyanminthant" target="_blank" rel="noopener noreferrer">BattlePants</a>
+        </p>
+        <p class="credit">
+          <a href="https://github.com/waiyanminthant/JATTUMNN" target="_blank" rel="noopener noreferrer">🔗 View on GitHub</a>
+        </p>
+      </div>
 
       <div class="field">
         <label>👤 Username</label>
         <div class="field-row">
-          <input
-            type="text"
-            id="username"
-            placeholder="Enter username"
-            readonly
-          />
-          <button type="button" class="edit-btn" data-field="username">
-            ✏️ Edit
-          </button>
+          <input type="text" id="username" placeholder="Enter username" readonly>
+          <button type="button" class="edit-btn" data-field="username">✏️ Edit</button>
         </div>
       </div>
 
       <div class="field">
         <label>🆔 User ID (auto‑generated)</label>
-        <input type="text" id="userId" readonly />
+        <input type="text" id="userId" readonly>
       </div>
 
       <div class="field">
         <label>📧 Email</label>
         <div class="field-row">
-          <input
-            type="email"
-            id="email"
-            placeholder="user@example.com"
-            readonly
-          />
-          <button type="button" class="edit-btn" data-field="email">
-            ✏️ Edit
-          </button>
+          <input type="email" id="email" placeholder="user@example.com" readonly>
+          <button type="button" class="edit-btn" data-field="email">✏️ Edit</button>
         </div>
       </div>
 
-      <!-- New: DeepSeek API Key -->
       <div class="field">
         <label>🔑 DeepSeek API Key</label>
         <div class="field-row">
-          <input type="password" id="apiKey" placeholder="sk-..." readonly />
-          <button type="button" class="edit-btn" data-field="apiKey">
-            ✏️ Edit
-          </button>
+          <input type="password" id="apiKey" placeholder="sk-..." readonly>
+          <button type="button" class="edit-btn" data-field="apiKey">✏️ Edit</button>
         </div>
       </div>
 
-      <!-- New: AI Model dropdown with refresh button -->
       <div class="field">
         <label>🤖 DeepSeek AI Model</label>
         <div class="field-row">
           <select id="aiModel" class="model-select" disabled>
             <option value="">-- Enter API key and refresh --</option>
           </select>
-          <button type="button" id="refreshModelsBtn" class="refresh-btn">
-            🔄 Refresh
-          </button>
+          <button type="button" id="refreshModelsBtn" class="refresh-btn">🔄 Refresh</button>
         </div>
         <div class="helper-note">
           💡 You need to pass the API key from
-          <a
-            href="https://platform.deepseek.com/api_keys"
-            target="_blank"
-            rel="noopener noreferrer"
-            >DeepSeek Platform</a
-          >
+          <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer">DeepSeek Platform</a>
           first. (Minimum 2 USD Top Up) Then enter and save it above.
         </div>
       </div>
-
-      <hr />
-
-      <button id="clearCacheBtn" class="clear-btn">🗑️ Clear Cache</button>
-      <div id="statusMsg" class="status"></div>
 
       <!-- Translation Cache Statistics -->
       <div class="cache-panel">
@@ -94,54 +87,31 @@
         <div class="progress-bar">
           <div id="cacheProgressFill" class="progress-fill"></div>
         </div>
-        <div class="field">
-          <button
-            id="clearTransCacheBtn"
-            class="clear-btn"
-            style="margin-top: 8px"
-          >
-            🗑️ Clear Translation Cache
-          </button>
-          <button
-            id="refreshCacheStatsBtn"
-            class="edit-btn"
-            style="margin-top: 8px"
-          >
-            🔄 Refresh Stats
-          </button>
-        </div>
+        <button id="clearTransCacheBtn" class="clear-btn" style="margin-top: 8px;">🗑️ Clear Translation Cache</button>
       </div>
-      <button id="clearTransCacheBtn" class="clear-btn" style="margin-top: 8px">
-        🗑️ Clear Translation Cache
-      </button>
-      <div class="description">
-        <p>
-          JATTUMNN is a lightweight Chrome extension that lets you translate any
-          text on the web with a single keyboard shortcut. Just hover over the
-          text you want to translate and press <kbd>Alt</kbd> + <kbd>A</kbd>. It
-          will be translated to English using the DeepSeek AI model of your
-          choice.
-        </p>
-        <p class="credit">
-          Developed by
-          <a
-            href="https://github.com/waiyanminthant"
-            target="_blank"
-            rel="noopener noreferrer"
-            >BattlePants</a
-          >
-        </p>
-        <p class="credit">
-          <a
-            href="https://github.com/waiyanminthant/JATTUMNN"
-            target="_blank"
-            rel="noopener noreferrer"
-            >🔗 View on GitHub</a
-          >
-        </p>
-      </div>
+
+      <hr>
+      <button id="clearCacheBtn" class="clear-btn">🗑️ Clear User Data (Username/Email/API Key)</button>
+      <div id="statusMsg" class="status"></div>
     </div>
 
-    <script src="settings.js"></script>
-  </body>
+    <!-- Prompt Tab -->
+    <div id="prompt-tab" class="tab-content">
+      <div class="field">
+        <label>📝 Custom System Prompt</label>
+        <textarea id="customPrompt" rows="6" placeholder="You are a translator. Translate the following text to English. Preserve formatting and only output the translated text, no explanations."></textarea>
+        <div class="helper-note">
+          💡 This prompt is sent to the AI model before each translation. 
+          Modify it to change translation style, language, or add extra instructions.
+        </div>
+      </div>
+      <div class="field-row">
+        <button id="savePromptBtn" class="save-btn">💾 Save Prompt</button>
+      </div>
+      <div id="promptStatus" class="status"></div>
+    </div>
+  </div>
+
+  <script src="settings.js"></script>
+</body>
 </html>
