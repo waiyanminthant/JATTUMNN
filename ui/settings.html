@@ -13,12 +13,26 @@
     <!-- Tab headers -->
     <div class="tabs">
       <button class="tab-btn active" data-tab="settings">Settings</button>
-      <button class="tab-btn" data-tab="prompt">Prompt</button>
-      <button class="tab-btn" data-tab="about">About</button>
+      <button class="tab-btn" data-tab="prompt">English Translation Prompt</button>
+      <button class="tab-btn" data-tab="logs">Error Logs</button>
     </div>
 
     <!-- Settings Tab -->
     <div id="settings-tab" class="tab-content active">
+      <div class="description">
+        <p>
+          JATTUMNN is a lightweight Chrome extension that lets you translate any text on the web with a single keyboard shortcut. 
+          Just hover over the text you want to translate and press <kbd>Alt</kbd> + <kbd>A</kbd> (or your chosen shortcut). 
+          It will be translated to English using the DeepSeek AI model of your choice.
+        </p>
+        <p class="credit">
+          Developed by 
+          <a href="https://github.com/waiyanminthant" target="_blank" rel="noopener noreferrer">BattlePants</a>
+        </p>
+        <p class="credit">
+          <a href="https://github.com/waiyanminthant/JATTUMNN" target="_blank" rel="noopener noreferrer">🔗 View on GitHub</a>
+        </p>
+      </div>
 
       <div class="field">
         <label>👤 Username</label>
@@ -82,14 +96,14 @@
       <div id="statusMsg" class="status"></div>
     </div>
 
-    <!-- Prompt Tab -->
+    <!-- English Translation Prompt Tab -->
     <div id="prompt-tab" class="tab-content">
       <div class="field">
         <label>📝 English Translation Prompt</label>
         <textarea id="customPrompt" rows="6" placeholder="Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations."></textarea>
         <div class="helper-note">
-          💡 This prompt is sent to the AI model before each translation. 
-          Modify it to change translation style, language, or add extra instructions.
+          💡 This prompt tells the AI how to translate. Default is optimized for English translation. 
+          Modify it to change translation style or add extra instructions (e.g., "Translate formally" or "Use simple English").
         </div>
       </div>
       <div class="field-row">
@@ -98,26 +112,16 @@
       <div id="promptStatus" class="status"></div>
     </div>
 
-      <!-- About Tab -->
-      <div id="about-tab" class="tab-content">
-        <div class="field">
-          <div class="description">
-            <p>
-              JATTUMNN is a lightweight Chrome extension that lets you translate any text on the web with a single keyboard shortcut. 
-              Just hover over the text you want to translate and press <kbd>Alt</kbd> + <kbd>A</kbd> (or your chosen shortcut). 
-              It will be translated to English using the DeepSeek AI model of your choice.
-            </p>
-            <p class="credit">
-              Developed by 
-              <a href="https://github.com/waiyanminthant" target="_blank" rel="noopener noreferrer">BattlePants</a>
-            </p>
-            <p class="credit">
-              <a href="https://github.com/waiyanminthant/JATTUMNN" target="_blank" rel="noopener noreferrer">🔗 View on GitHub</a>
-            </p>
-            <p class="credit">
-              <a href="https://github.com/waiyanminthant/JATTUMNN/issues" target="_blank" rel="noopener noreferrer">🚨 Report an Issue</a>
-            </p>
-          </div>
+    <!-- Error Logs Tab -->
+    <div id="logs-tab" class="tab-content">
+      <div class="field">
+        <label>📋 Error Logs</label>
+        <div class="log-controls" style="display: flex; gap: 10px; margin-bottom: 10px;">
+          <button id="exportLogsBtn" class="save-btn" style="width: auto;">📥 Export Logs</button>
+          <button id="clearLogsBtn" class="clear-btn" style="width: auto;">🗑️ Clear Logs</button>
+        </div>
+        <div id="logContainer" style="max-height: 400px; overflow-y: auto; background: #0d0d0d; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px;">
+          <div style="color: #888;">Loading logs...</div>
         </div>
       </div>
     </div>

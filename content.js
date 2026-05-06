@@ -1,5 +1,7 @@
 // content.js – JATTUMNN
-// Replaces all non‑empty text nodes. Uses fixed separator __SEP__.
+// Replaces all non‑empty text nodes inside the container, preserving HTML structure.
+// Uses fixed separator __SEP__ that the AI is instructed to preserve.
+// Includes error display, spinner, and revert functionality.
 
 const JATTUMNN_SEPARATOR = '__SEP__';
 
@@ -69,7 +71,6 @@ function hideSpinner(container) {
 
 function showError(container, errorMessage) {
   if (!container) return;
-  // Remove existing error message
   const existingError = container.querySelector('.jattumnn-error');
   if (existingError) existingError.remove();
   
@@ -178,13 +179,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     
     if (pending && pending.element) {
       if (error) {
-        // Error occurred during translation
         console.error(`[JATTUMNN] Translation error: ${error}`);
         hideSpinner(pending.element);
         showError(pending.element, `Error: ${error}`);
-        // Do NOT modify the text – keep original
       } else if (translatedText) {
-        // Success – apply translation
         const elapsed = (performance.now() - pending.startTime).toFixed(2);
         console.log(`[JATTUMNN] Translation completed in ${elapsed} ms`);
         

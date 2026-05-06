@@ -1,5 +1,5 @@
 // settings.js – JATTUMNN
-// Updated with English Translation Prompt
+// Updated with English Translation Prompt and Error Logs tab
 
 function showStatus(message, isError = false) {
   const statusDiv = document.getElementById('statusMsg');
@@ -36,11 +36,9 @@ async function loadSettings() {
   if (result.customPrompt) {
     promptTextarea.value = result.customPrompt;
   } else {
-    // Set condensed default prompt
     promptTextarea.value = "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
   }
   
-  // If API key exists, enable refresh button and try to load models automatically
   if (result.apiKey && result.apiKey.trim() !== '') {
     document.getElementById('refreshModelsBtn').disabled = false;
     fetchModels(result.apiKey, false);
@@ -276,7 +274,6 @@ async function loadPrompt() {
     if (customPrompt) {
       textarea.value = customPrompt;
     } else {
-      // Set condensed default
       textarea.value = "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
     }
   }
@@ -306,6 +303,88 @@ function showPromptStatus(message, isError) {
   }
 }
 
+// Error Logs functions
+async function loadErrorLogs() {
+  const container = document.getElementById('logContainer');
+  if (!container) return;
+  
+  try {
+    const response = await chrome.runtime.sendMessage({ action: "getErrorLog" });
+    if (response && response.log) {
+      displayErrorLogs(response.log);
+    } else if (response && response.error) {
+      console.error('Failed to load logs:', response.error);
+      container.innerHTML = '<div style="color: #f87171;">Failed to load logs.</div>';
+    } else {
+      container.innerHTML = '<div style="color: #888;">No errors logged.</div>';
+    }
+  } catch (e) {
+    container.innerHTML = '<div style="color: #f87171;">Error loading logs.</div>';
+  }
+}
+
+function displayErrorLogs(logs) {
+  const container = document.getElementById('logContainer');
+  if (!logs || logs.length === 0) {
+    container.innerHTML = '<div style="color: #888;">No errors logged.</div>';
+    return;
+  }
+  
+  let html = '';
+  for (const log of logs) {
+    html += `
+      <div style="border-bottom: 1px solid #333; padding: 8px 0; margin-bottom: 8px;">
+        <div style="color: #f87171; font-weight: bold;">${new Date(log.timestamp).toLocaleString()}</div>
+        <div style="color: #ffaa66;">${escapeHtml(log.type)}: ${escapeHtml(log.message)}</div>
+        <div style="color: #aaa; font-size: 11px;">Context: ${escapeHtml(JSON.stringify(log.context))}</div>
+        ${log.stack ? `<details><summary style="cursor: pointer; color: #888;">Stack trace</summary><pre style="background: #000; color: #FFF; padding: 4px; margin-top: 4px; overflow-x: auto;">${escapeHtml(log.stack)}</pre></details>` : ''}
+      </div>
+    `;
+  }
+  container.innerHTML = html;
+}
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+async function exportErrorLogs() {
+  const response = await chrome.runtime.sendMessage({ action: "getErrorLog" });
+  if (!response || !response.log) {
+    alert('No logs to export.');
+    return;
+  }
+  
+  const logs = response.log;
+  const dataStr = JSON.stringify(logs, null, 2);
+  const blob = new Blob([dataStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `jattumnn_error_logs_${new Date().toISOString().slice(0,19)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function clearErrorLogs() {
+  if (confirm('Clear all error logs?')) {
+    const response = await chrome.runtime.sendMessage({ action: "clearErrorLog" });
+    if (response && response.success) {
+      loadErrorLogs();
+      showStatus('Error logs cleared.', false);
+    } else {
+      showStatus('Failed to clear logs.', true);
+    }
+  }
+}
+
+// DOMContentLoaded
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   await updateCacheStats();
@@ -333,10 +412,18 @@ document.addEventListener('DOMContentLoaded', async () => {
   const aiModelSelect = document.getElementById('aiModel');
   aiModelSelect.addEventListener('change', saveAiModel);
   
+  // Tab switching
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tabId = btn.getAttribute('data-tab');
       switchTab(tabId);
+      if (tabId === 'logs') {
+        loadErrorLogs();
+      }
     });
   });
+  
+  // Logs buttons
+  document.getElementById('exportLogsBtn')?.addEventListener('click', exportErrorLogs);
+  document.getElementById('clearLogsBtn')?.addEventListener('click', clearErrorLogs);
 });

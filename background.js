@@ -1,60 +1,73 @@
 // background.js – JATTUMNN
-// Handles translation via DeepSeek API, with persistent cache and separator preservation.
+// Handles translation via DeepSeek API, with persistent cache, separator preservation, timeout, and error logging.
 
 chrome.commands.onCommand.addListener(async (command) => {
-  let activeTab = null;
   switch (command) {
+    case "translate-text":
+      await handleHoverTranslation();
+      break;
+    case "translate-input":
+      await handleInputTranslation();
+      break;
     default:
       console.warn("Background: unknown command received:", command);
-      return;
-    case "translate-text":
-      try {
-        const activeTab = await checkForActiveTab();
-        if (!activeTab) {
-          console.warn("Background: no active tab found");
-          return;
-        }
-        const response = await chrome.tabs.sendMessage(activeTab.id, {
-          action: "getTextToTranslate",
-        });
-        if (response.skip) return;
-        const hoveredText = response?.text?.trim();
-        const requestId = response?.requestId;
-        if (!hoveredText || !requestId) {
-          console.warn("Background: no text or missing requestId");
-          return;
-        }
-        console.log("Original text:", hoveredText);
-        
-        try {
-          const translatedText = await translateText(hoveredText);
-          await chrome.tabs.sendMessage(activeTab.id, {
-            action: "displayTranslation",
-            requestId: requestId,
-            translatedText: translatedText,
-            error: null
-          });
-        } catch (translationError) {
-          console.error("Translation error:", translationError);
-          await chrome.tabs.sendMessage(activeTab.id, {
-            action: "displayTranslation",
-            requestId: requestId,
-            translatedText: null,
-            error: translationError.message || "Translation failed"
-          });
-        }
-      } catch (error) {
-        console.error(error);
-      }
-      break;
   }
 });
+
+async function handleHoverTranslation() {
+  try {
+    const activeTab = await checkForActiveTab();
+    if (!activeTab) {
+      console.warn("Background: no active tab found");
+      return;
+    }
+    const response = await chrome.tabs.sendMessage(activeTab.id, {
+      action: "getTextToTranslate",
+    });
+    if (response.skip) return;
+    const hoveredText = response?.text?.trim();
+    const requestId = response?.requestId;
+    if (!hoveredText || !requestId) {
+      console.warn("Background: no text or missing requestId");
+      return;
+    }
+    console.log("Original text:", hoveredText);
+    
+    try {
+      const translatedText = await translateText(hoveredText, 5000);
+      await chrome.tabs.sendMessage(activeTab.id, {
+        action: "displayTranslation",
+        requestId: requestId,
+        translatedText: translatedText,
+        error: null
+      });
+    } catch (translationError) {
+      console.error("Translation error:", translationError);
+      await logError(translationError, { action: 'hover', textPreview: hoveredText.substring(0, 100) });
+      await chrome.tabs.sendMessage(activeTab.id, {
+        action: "displayTranslation",
+        requestId: requestId,
+        translatedText: null,
+        error: translationError.message || "Translation failed"
+      });
+    }
+  } catch (error) {
+    console.error(error);
+    await logError(error, { action: 'hover' });
+  }
+}
+
+async function handleInputTranslation() {
+  // Placeholder for future implementation
+  console.log("Input translation command received – feature coming soon");
+}
 
 function catchScriptError(error) {
   if (error.message?.includes("Receiving end does not exist")) {
     console.warn("Background: content script not ready or not injected in this tab");
   } else {
     console.error("Background: failed to send message", error);
+    logError(error, { source: 'background' });
   }
 }
 
@@ -63,7 +76,7 @@ async function checkForActiveTab() {
   return tab || null;
 }
 
-async function translateText(text) {
+async function translateText(text, timeoutMs = 5000) {
   const cached = await translationCache.get(text);
   if (cached) {
     console.log("Using cached translation for:", text.substring(0, 50));
@@ -74,46 +87,65 @@ async function translateText(text) {
   if (!apiKey) throw new Error("API key not set. Please configure in settings.");
   if (!aiModel) throw new Error("AI model not selected. Please configure in settings.");
 
-let systemPrompt = customPrompt && customPrompt.trim() !== "" 
-  ? customPrompt.trim() 
-  : "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
+  let systemPrompt = customPrompt && customPrompt.trim() !== "" 
+    ? customPrompt.trim() 
+    : "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
 
-  const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: aiModel,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: text }
-      ],
-      temperature: 0.3,
-      max_tokens: 2000,
-    }),
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!response.ok) {
-    let errorMsg = `API error: ${response.status}`;
-    if (response.status === 401) errorMsg = "Invalid API key. Please check your DeepSeek API key.";
-    if (response.status === 429) errorMsg = "Rate limit exceeded. Please wait and try again.";
-    if (response.status === 402) errorMsg = "Insufficient balance. Please top up your DeepSeek account.";
-    try {
-      const errorData = await response.json();
-      errorMsg = errorData.error?.message || errorMsg;
-    } catch (e) {}
-    throw new Error(errorMsg);
+  try {
+    const response = await fetch("https://api.deepseek.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: aiModel,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: text }
+        ],
+        thinking: { "type": "disabled" },
+        temperature: 0.3,
+        max_tokens: 2000,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      let errorMsg = `API error: ${response.status}`;
+      if (response.status === 401) errorMsg = "Invalid API key. Please check your DeepSeek API key.";
+      if (response.status === 429) errorMsg = "Rate limit exceeded. Please wait and try again.";
+      if (response.status === 402) errorMsg = "Insufficient balance. Please top up your DeepSeek account.";
+      try {
+        const errorData = await response.json();
+        errorMsg = errorData.error?.message || errorMsg;
+      } catch (e) {}
+      throw new Error(errorMsg);
+    }
+
+    const data = await response.json();
+    const translated = data.choices[0]?.message?.content?.trim();
+    if (!translated) throw new Error("No translation returned from API");
+
+    await translationCache.set(text, translated);
+    console.log("Cached translation for:", text.substring(0, 50));
+    return translated;
+
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      const timeoutError = new Error(`Translation timed out after ${timeoutMs/1000} seconds. Please try again.`);
+      await logError(timeoutError, { apiCall: 'deepseek', timeout: timeoutMs });
+      throw timeoutError;
+    }
+    await logError(error, { apiCall: 'deepseek' });
+    throw error;
   }
-
-  const data = await response.json();
-  const translated = data.choices[0]?.message?.content?.trim();
-  if (!translated) throw new Error("No translation returned from API");
-
-  await translationCache.set(text, translated);
-  console.log("Cached translation for:", text.substring(0, 50));
-  return translated;
 }
 
 // ----- Persistent Translation Cache -----
@@ -172,6 +204,38 @@ class TranslationCache {
 
 const translationCache = new TranslationCache();
 
+// ----- Error Logging -----
+const MAX_LOG_ENTRIES = 100;
+
+async function logError(error, context = {}) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    message: error.message || String(error),
+    stack: error.stack,
+    context: context,
+    type: error.name || 'Error'
+  };
+  
+  try {
+    const { errorLog = [] } = await chrome.storage.local.get('errorLog');
+    errorLog.unshift(logEntry);
+    if (errorLog.length > MAX_LOG_ENTRIES) errorLog.pop();
+    await chrome.storage.local.set({ errorLog });
+    console.log('[JATTUMNN] Error logged:', logEntry.message);
+  } catch (e) {
+    console.error('Failed to write error log:', e);
+  }
+}
+
+async function clearErrorLog() {
+  await chrome.storage.local.set({ errorLog: [] });
+}
+
+async function getErrorLog() {
+  const { errorLog = [] } = await chrome.storage.local.get('errorLog');
+  return errorLog;
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "clearTranslationCache") {
     translationCache.clear()
@@ -179,4 +243,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       .catch((err) => sendResponse({ success: false, error: err.message }));
     return true;
   }
+  if (message.action === "logError") {
+    logError(new Error(message.error), { source: 'content', context: message.context }).then(() => {
+      sendResponse({ success: true });
+    }).catch(() => sendResponse({ success: false }));
+    return true;
+  }
+  if (message.action === "getErrorLog") {
+    getErrorLog().then(log => sendResponse({ log })).catch(e => sendResponse({ error: e.message }));
+    return true;
+  }
+  if (message.action === "clearErrorLog") {
+    clearErrorLog().then(() => sendResponse({ success: true })).catch(e => sendResponse({ error: e.message }));
+    return true;
+  }
+  return true;
 });
