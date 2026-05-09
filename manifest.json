@@ -4,13 +4,20 @@
   "version": "0.1.1",
   "description": "Just Another Translate Tool U Might Not Need",
   "permissions": ["activeTab", "storage"],
+  "web_accessible_resources": [
+    {
+      "resources": ["content.js", "modules/*.js"],
+      "matches": ["<all_urls>"]
+    }
+  ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"]
+      "js": ["./modules/contentLoader.js"]
     }
   ],
   "commands": {

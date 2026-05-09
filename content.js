@@ -3,130 +3,13 @@
 // Uses fixed separator __SEP__ that the AI is instructed to preserve.
 // Includes error display, spinner, and revert functionality.
 
-const JATTUMNN_SEPARATOR = '__SEP__';
+import { showSpinner, getTextNodes, getContainerElement, hideSpinner, showError, revertTranslation, applyTranslation } from "./modules/utils.js";
+import { JATTUMNN_SEPARATOR } from "./modules/options.js";
 
 let hoveredElement = null;
 let activeRequests = new Map();
 
-function getTextNodes(container) {
-  const walker = document.createTreeWalker(
-    container,
-    NodeFilter.SHOW_TEXT,
-    {
-      acceptNode(node) {
-        if (node.nodeValue.trim().length === 0) return NodeFilter.FILTER_SKIP;
-        return NodeFilter.FILTER_ACCEPT;
-      }
-    }
-  );
-  const nodes = [];
-  while (walker.nextNode()) nodes.push(walker.currentNode);
-  return nodes;
-}
-
-function getContainerElement(element) {
-  if (!element) return null;
-  const container = element.closest("p, div, section, article, li, blockquote, h1, h2, h3, h4, h5, h6, td, th");
-  return container || element;
-}
-
-function showSpinner(container) {
-  if (!container) return;
-  const existingSpinner = container.querySelector('.jattumnn-spinner');
-  if (existingSpinner) existingSpinner.remove();
-  const spinner = document.createElement('span');
-  spinner.className = 'jattumnn-spinner';
-  spinner.setAttribute('aria-label', 'Translating...');
-  spinner.style.cssText = `
-    display: inline-block;
-    width: 0.6em;
-    height: 0.6em;
-    background-color: #3b82f6;
-    border-radius: 50%;
-    animation: jattumnn-pulse 1s ease-in-out infinite;
-    margin-left: 8px;
-    vertical-align: middle;
-  `;
-  if (!document.querySelector('#jattumnn-spinner-style')) {
-    const style = document.createElement('style');
-    style.id = 'jattumnn-spinner-style';
-    style.textContent = `
-      @keyframes jattumnn-pulse {
-        0%, 100% { opacity: 0.4; transform: scale(0.8); }
-        50% { opacity: 1; transform: scale(1.2); }
-      }
-    `;
-    document.head.appendChild(style);
-  }
-  container.appendChild(spinner);
-  return spinner;
-}
-
-function hideSpinner(container) {
-  if (container) {
-    const spinner = container.querySelector('.jattumnn-spinner');
-    if (spinner) spinner.remove();
-  }
-}
-
-function showError(container, errorMessage) {
-  if (!container) return;
-  const existingError = container.querySelector('.jattumnn-error');
-  if (existingError) existingError.remove();
-  
-  const errorSpan = document.createElement('span');
-  errorSpan.className = 'jattumnn-error';
-  errorSpan.textContent = `⚠️ ${errorMessage}`;
-  errorSpan.style.cssText = `
-    display: inline-block;
-    color: #f87171;
-    background-color: rgba(0,0,0,0.7);
-    font-size: 0.8em;
-    padding: 2px 6px;
-    border-radius: 4px;
-    margin-left: 8px;
-    font-family: monospace;
-    white-space: nowrap;
-  `;
-  container.appendChild(errorSpan);
-  
-  // Auto-hide after 5 seconds
-  setTimeout(() => {
-    if (errorSpan.parentNode) errorSpan.remove();
-  }, 5000);
-}
-
-function revertTranslation(container, textNodes) {
-  if (!container || !textNodes) return false;
-  let restored = false;
-  for (const node of textNodes) {
-    if (node._jattumnn_original) {
-      node.nodeValue = node._jattumnn_original;
-      restored = true;
-    }
-  }
-  if (restored) {
-    delete container._jattumnn_translated;
-    delete container._jattumnn_textNodes;
-    hideSpinner(container);
-  }
-  return restored;
-}
-
-function applyTranslation(container, textNodes, translatedSegments) {
-  for (let i = 0; i < textNodes.length; i++) {
-    const node = textNodes[i];
-    if (node._jattumnn_original === undefined) {
-      node._jattumnn_original = node.nodeValue;
-    }
-  }
-  for (let i = 0; i < textNodes.length && i < translatedSegments.length; i++) {
-    textNodes[i].nodeValue = translatedSegments[i];
-  }
-  container._jattumnn_translated = true;
-  container._jattumnn_textNodes = textNodes;
-}
-
+// Listen for mouseover to track the currently hovered element for translation requests
 document.addEventListener("mouseover", (event) => {
   let target = event.target;
   if (target.nodeType === Node.TEXT_NODE) {
@@ -135,6 +18,7 @@ document.addEventListener("mouseover", (event) => {
   hoveredElement = target;
 });
 
+// this listener handles messages from the background script to get text for translation and to display translations or errors
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "getTextToTranslate") {
     const container = hoveredElement ? getContainerElement(hoveredElement) : null;
