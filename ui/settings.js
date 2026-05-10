@@ -1,78 +1,297 @@
-// settings.js – JATTUMNN
+// settings.js – JATTUMNN  (multi-provider edition)
 
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 const DEFAULT_PROMPT = "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
 
+const PROVIDER_IDS = ['deepseek', 'openai', 'gemini', 'openai_compat'];
+
+// All storage keys we ever read or write
+const ALL_STORAGE_KEYS = [
+  'username', 'userId', 'email',
+  'selectedProvider', 'customPrompt',
+  'apiKey_deepseek', 'apiKey_openai', 'apiKey_gemini', 'apiKey_openai_compat',
+  'baseUrl_openai_compat',
+  'aiModel_deepseek', 'aiModel_openai', 'aiModel_gemini', 'aiModel_openai_compat',
+  // Legacy key from pre-multi-provider version
+  'apiKey',
+];
+
+// ---------------------------------------------------------------------------
+// Status helpers
+// ---------------------------------------------------------------------------
 function showStatus(message, isError = false) {
-  const statusDiv = document.getElementById('statusMsg');
-  statusDiv.textContent = message;
-  statusDiv.style.color = isError ? '#f87171' : '#3b82f6';
-  setTimeout(() => { statusDiv.textContent = ''; }, 3000);
+  const el = document.getElementById('statusMsg');
+  el.textContent = message;
+  el.style.color = isError ? '#f87171' : '#3b82f6';
+  setTimeout(() => { el.textContent = ''; }, 3000);
 }
 
+function showPromptStatus(message, isError = false) {
+  const el = document.getElementById('promptStatus');
+  if (!el) return;
+  el.textContent = message;
+  el.style.color = isError ? '#f87171' : '#3b82f6';
+  setTimeout(() => { el.textContent = ''; }, 2500);
+}
+
+// ---------------------------------------------------------------------------
+// UUID
+// ---------------------------------------------------------------------------
 function generateUUID() {
   return crypto.randomUUID();
 }
 
-async function loadSettings() {
-  const result = await chrome.storage.sync.get(['username', 'userId', 'email', 'apiKey', 'aiModel', 'customPrompt']);
+// ---------------------------------------------------------------------------
+// Provider UI switching
+// Hides / shows the right API key field and base URL field based on selection.
+// ---------------------------------------------------------------------------
+function applyProviderUI(providerId) {
+  // Hide all provider-specific key fields
+  PROVIDER_IDS.forEach(id => {
+    const el = document.getElementById(`field-apiKey-${id}`);
+    if (el) el.style.display = 'none';
+  });
 
+  // Show the active one
+  const activeField = document.getElementById(`field-apiKey-${providerId}`);
+  if (activeField) activeField.style.display = '';
+
+  // Base URL field only for openai_compat
+  const baseUrlField = document.getElementById('field-baseUrl');
+  if (baseUrlField) baseUrlField.style.display = providerId === 'openai_compat' ? '' : 'none';
+
+  // Update model helper note
+  const note = document.getElementById('modelHelperNote');
+  if (note) {
+    note.textContent = providerId === 'openai_compat'
+      ? '💡 Enter the base URL above, then click Refresh to load models. If your server doesn\'t expose /models, type the model name manually below.'
+      : '💡 Save your API key first, then click Refresh to load available models.';
+  }
+
+  // Reset model select
+  const modelSelect = document.getElementById('aiModel');
+  modelSelect.innerHTML = '<option value="">-- Configure provider above and refresh --</option>';
+  modelSelect.disabled = true;
+
+  // Hide manual model input (will be shown only on fetch failure for openai_compat)
+  document.getElementById('manualModel').style.display = 'none';
+
+  // Enable refresh only if there's something to work with
+  updateRefreshBtnState(providerId);
+}
+
+function updateRefreshBtnState(providerId) {
+  const btn = document.getElementById('refreshModelsBtn');
+  if (providerId === 'openai_compat') {
+    const baseUrl = document.getElementById('baseUrl_openai_compat')?.value?.trim();
+    btn.disabled = !baseUrl;
+  } else {
+    const apiKey = document.getElementById(`apiKey_${providerId}`)?.value?.trim();
+    btn.disabled = !apiKey;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Load all settings (single storage call)
+// ---------------------------------------------------------------------------
+async function loadSettings() {
+  const result = await chrome.storage.sync.get(ALL_STORAGE_KEYS);
+
+  // --- Migrate legacy single apiKey -> apiKey_deepseek ---
+  if (result.apiKey && !result.apiKey_deepseek) {
+    await chrome.storage.sync.set({ apiKey_deepseek: result.apiKey });
+    result.apiKey_deepseek = result.apiKey;
+    console.log('[JATTUMNN] Migrated legacy apiKey -> apiKey_deepseek');
+  }
+
+  // --- Auto-generate userId ---
   if (!result.userId) {
     const newId = generateUUID();
     await chrome.storage.sync.set({ userId: newId });
     result.userId = newId;
   }
 
+  // --- Populate user fields ---
   document.getElementById('username').value = result.username || '';
-  document.getElementById('userId').value = result.userId;
-  document.getElementById('email').value = result.email || '';
-  document.getElementById('apiKey').value = result.apiKey || '';
+  document.getElementById('userId').value   = result.userId;
+  document.getElementById('email').value    = result.email    || '';
 
-  const aiModelSelect = document.getElementById('aiModel');
-  if (result.aiModel) {
-    aiModelSelect.value = result.aiModel;
-  }
+  // --- Populate all API key inputs ---
+  PROVIDER_IDS.forEach(id => {
+    const el = document.getElementById(`apiKey_${id}`);
+    if (el) el.value = result[`apiKey_${id}`] || '';
+  });
 
-  // Load custom prompt — all fields are fetched in one call above
+  // --- Base URL for openai_compat ---
+  const baseUrlEl = document.getElementById('baseUrl_openai_compat');
+  if (baseUrlEl) baseUrlEl.value = result['baseUrl_openai_compat'] || '';
+
+  // --- Provider selector ---
+  const providerId = result.selectedProvider || 'deepseek';
+  const providerSelect = document.getElementById('providerSelect');
+  providerSelect.value = providerId;
+  applyProviderUI(providerId);
+
+  // --- Prompt ---
   document.getElementById('customPrompt').value = result.customPrompt || DEFAULT_PROMPT;
 
-  if (result.apiKey && result.apiKey.trim() !== '') {
-    document.getElementById('refreshModelsBtn').disabled = false;
-    fetchModels(result.apiKey, false);
+  // --- Load saved model then try to populate model list ---
+  await loadModelsForProvider(providerId, result, false);
+}
+
+// ---------------------------------------------------------------------------
+// Model loading
+// ---------------------------------------------------------------------------
+async function loadModelsForProvider(providerId, storedSettings, showStatusMsg) {
+  const apiKey    = storedSettings[`apiKey_${providerId}`]    || '';
+  const baseUrl   = storedSettings['baseUrl_openai_compat']   || '';
+  const savedModel = storedSettings[`aiModel_${providerId}`]  || '';
+
+  if (providerId === 'openai_compat') {
+    if (!baseUrl) return;
+    await fetchModels(providerId, apiKey, baseUrl, savedModel, showStatusMsg);
   } else {
-    document.getElementById('refreshModelsBtn').disabled = true;
+    if (!apiKey) return;
+    await fetchModels(providerId, apiKey, '', savedModel, showStatusMsg);
   }
 }
 
-async function saveFieldAndLock(fieldId) {
-  const input = document.getElementById(fieldId);
-  const value = fieldId === 'apiKey' ? input.value : input.value.trim();
-  const btn = document.querySelector(`.edit-btn[data-field="${fieldId}"]`);
-  
+async function fetchModels(providerId, apiKey, baseUrl, savedModel = '', showStatusMsg = true) {
+  const select     = document.getElementById('aiModel');
+  const refreshBtn = document.getElementById('refreshModelsBtn');
+  const manualInput = document.getElementById('manualModel');
+
+  select.disabled = true;
+  refreshBtn.disabled = true;
+  select.innerHTML = '<option value="">⏳ Loading models...</option>';
+  manualInput.style.display = 'none';
+
   try {
-    await chrome.storage.sync.set({ [fieldId]: value });
-    input.setAttribute('readonly', true);
-    btn.textContent = '✏️ Edit';
-    showStatus(`${fieldId === 'apiKey' ? 'API Key' : fieldId.charAt(0).toUpperCase() + fieldId.slice(1)} saved!`, false);
-    
-    if (fieldId === 'apiKey' && value && value.trim() !== '') {
-      document.getElementById('refreshModelsBtn').disabled = false;
-      fetchModels(value, true);
-    } else if (fieldId === 'apiKey' && (!value || value.trim() === '')) {
-      document.getElementById('refreshModelsBtn').disabled = true;
-      document.getElementById('aiModel').disabled = true;
-      document.getElementById('aiModel').innerHTML = '<option value="">-- Enter API key --</option>';
+    let modelsUrl;
+
+    if (providerId === 'gemini') {
+      modelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+    } else if (providerId === 'openai_compat') {
+      const base = baseUrl.replace(/\/+$/, '');
+      modelsUrl = `${base}/v1/models`;
+    } else if (providerId === 'deepseek') {
+      modelsUrl = 'https://api.deepseek.com/models';
+    } else if (providerId === 'openai') {
+      modelsUrl = 'https://api.openai.com/v1/models';
     }
-  } catch (error) {
-    console.error(`Save error for ${fieldId}:`, error);
-    showStatus(`Failed to save ${fieldId}`, true);
+
+    const headers = {};
+    if (providerId !== 'gemini') {
+      if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+      headers['Content-Type'] = 'application/json';
+    }
+
+    const response = await fetch(modelsUrl, { method: 'GET', headers });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Normalise response shape: Gemini uses data.models[], others use data.data[]
+    const rawModels = providerId === 'gemini' ? (data.models || []) : (data.data || []);
+
+    // Apply provider-specific filter from options.js registry
+    // We import the registry at the bottom to avoid circular deps in settings context
+    const filtered = filterModelsForProvider(providerId, rawModels);
+
+    if (filtered.length === 0) {
+      select.innerHTML = '<option value="">⚠️ No models found</option>';
+      if (showStatusMsg) showStatus('No models found for this provider / key', true);
+
+      // For openai_compat, offer manual input as fallback
+      if (providerId === 'openai_compat') showManualModelInput(savedModel);
+      return;
+    }
+
+    select.innerHTML = filtered.map(m => `<option value="${m.id}">${m.id}</option>`).join('');
+
+    // Restore previously saved model if it's still in the list
+    let selected = savedModel && filtered.some(m => m.id === savedModel)
+      ? savedModel
+      : filtered[0].id;
+
+    select.value = selected;
+    await chrome.storage.sync.set({ [`aiModel_${providerId}`]: selected });
+
+    if (showStatusMsg) showStatus(`Loaded ${filtered.length} model(s)`, false);
+
+  } catch (err) {
+    console.error('[JATTUMNN] Fetch models error:', err);
+    select.innerHTML = `<option value="">❌ Error: ${err.message}</option>`;
+    if (showStatusMsg) showStatus(`Failed to load models: ${err.message}`, true);
+
+    // For openai_compat, offer manual input as fallback even on error
+    if (providerId === 'openai_compat') showManualModelInput(savedModel);
+  } finally {
+    select.disabled = false;
+    refreshBtn.disabled = false;
   }
 }
 
+// Standalone filter logic mirroring options.js PROVIDERS — keeps settings.js
+// self-contained without importing ES modules (settings.html uses a plain <script>).
+function filterModelsForProvider(providerId, models) {
+  switch (providerId) {
+    case 'deepseek':
+      return models.filter(m => m.owned_by === 'deepseek');
+    case 'openai':
+      return models
+        .filter(m => m.id.startsWith('gpt-') || m.id.startsWith('o1') || m.id.startsWith('o3'))
+        .sort((a, b) => b.id.localeCompare(a.id));
+    case 'gemini':
+      return models
+        .filter(m => m.name?.includes('gemini') && m.supportedGenerationMethods?.includes('generateContent'))
+        .map(m => ({ id: m.name.replace('models/', ''), ...m }))
+        .sort((a, b) => b.id.localeCompare(a.id));
+    case 'openai_compat':
+      return models.sort((a, b) => a.id.localeCompare(b.id));
+    default:
+      return models;
+  }
+}
+
+function showManualModelInput(savedModel = '') {
+  const manualInput = document.getElementById('manualModel');
+  manualInput.style.display = '';
+  if (savedModel) manualInput.value = savedModel;
+  manualInput.addEventListener('change', async () => {
+    const val = manualInput.value.trim();
+    if (val) {
+      await chrome.storage.sync.set({ aiModel_openai_compat: val });
+      showStatus('Manual model name saved', false);
+    }
+  }, { once: false });
+}
+
+// ---------------------------------------------------------------------------
+// Save AI model on dropdown change
+// ---------------------------------------------------------------------------
+async function saveAiModel() {
+  const providerId = document.getElementById('providerSelect').value;
+  const select     = document.getElementById('aiModel');
+  const model      = select.value;
+  if (!model) return;
+  await chrome.storage.sync.set({ [`aiModel_${providerId}`]: model });
+  showStatus('Model saved', false);
+}
+
+// ---------------------------------------------------------------------------
+// Generic editable field setup
+// ---------------------------------------------------------------------------
 function setupField(fieldId) {
   const input = document.getElementById(fieldId);
-  const btn = document.querySelector(`.edit-btn[data-field="${fieldId}"]`);
-  if (!btn) return;
-  
+  const btn   = document.querySelector(`.edit-btn[data-field="${fieldId}"]`);
+  if (!input || !btn) return;
+
   btn.addEventListener('click', async () => {
     if (input.hasAttribute('readonly')) {
       input.removeAttribute('readonly');
@@ -84,329 +303,284 @@ function setupField(fieldId) {
   });
 }
 
-async function fetchModels(apiKey, showStatusMsg = true) {
-  const select = document.getElementById('aiModel');
-  const refreshBtn = document.getElementById('refreshModelsBtn');
-  
-  if (!apiKey || apiKey.trim() === '') {
-    if (showStatusMsg) showStatus('❌ API key is missing. Please enter and save your DeepSeek API key first.', true);
-    return;
-  }
-  
-  select.disabled = true;
-  refreshBtn.disabled = true;
-  select.innerHTML = '<option value="">⏳ Loading models...</option>';
-  
-  try {
-    const response = await fetch('https://api.deepseek.com/models', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!response.ok) {
-      let errorMsg = `HTTP ${response.status}`;
-      if (response.status === 401) errorMsg = 'Invalid API key (401)';
-      else if (response.status === 403) errorMsg = 'Forbidden – check your API key permissions';
-      else if (response.status === 429) errorMsg = 'Rate limited – wait a moment';
-      else if (response.status === 500) errorMsg = 'DeepSeek server error';
-      throw new Error(errorMsg);
-    }
-    
-    const data = await response.json();
-    const models = data.data.filter(m => m.object === 'model' && m.owned_by === 'deepseek');
-    
-    if (models.length === 0) {
-      select.innerHTML = '<option value="">⚠️ No models found for this API key</option>';
-      if (showStatusMsg) showStatus('No DeepSeek models returned – your API key may have limited access', true);
-    } else {
-      select.innerHTML = models.map(m => `<option value="${m.id}">${m.id}</option>`).join('');
-      
-      const stored = await chrome.storage.sync.get('aiModel');
-      let selectedModel = stored.aiModel;
-      
-      if (!selectedModel || !models.some(m => m.id === selectedModel)) {
-        selectedModel = models[0].id;
-        await chrome.storage.sync.set({ aiModel: selectedModel });
-        if (showStatusMsg) showStatus(`Default model "${selectedModel}" selected and saved`, false);
-      } else {
-        if (showStatusMsg) showStatus(`Loaded ${models.length} model(s)`, false);
-      }
-      
-      select.value = selectedModel;
-    }
-  } catch (error) {
-    console.error('Fetch models error:', error);
-    select.innerHTML = `<option value="">❌ Error: ${error.message}</option>`;
-    if (showStatusMsg) showStatus(`Failed to load models: ${error.message}`, true);
-  } finally {
-    select.disabled = false;
-    refreshBtn.disabled = false;
-  }
-}
+async function saveFieldAndLock(fieldId) {
+  const input = document.getElementById(fieldId);
+  const btn   = document.querySelector(`.edit-btn[data-field="${fieldId}"]`);
+  const value = input.value; // don't trim passwords / URLs
 
-async function saveAiModel() {
-  const select = document.getElementById('aiModel');
-  const selectedModel = select.value;
-  if (!selectedModel) return;
   try {
-    await chrome.storage.sync.set({ aiModel: selectedModel });
-    showStatus('AI model saved!', false);
-  } catch (error) {
-    console.error('Save AI model error:', error);
-    showStatus('Failed to save AI model', true);
-  }
-}
+    await chrome.storage.sync.set({ [fieldId]: value });
+    input.setAttribute('readonly', true);
+    btn.textContent = '✏️ Edit';
 
-async function clearCache() {
-  const confirmed = confirm('🗑️ Are you sure you want to clear all user data?\nThis will reset your username, email, API key, and English translation prompt.');
-  if (!confirmed) return;
-  
-  try {
-    await chrome.storage.sync.set({
-      username: '',
-      email: '',
-      apiKey: '',
-      customPrompt: DEFAULT_PROMPT,
-    });
+    const label = fieldId.startsWith('apiKey_') ? 'API Key'
+      : fieldId === 'baseUrl_openai_compat' ? 'Base URL'
+      : fieldId.charAt(0).toUpperCase() + fieldId.slice(1);
+    showStatus(`${label} saved!`, false);
 
-    const usernameInput = document.getElementById('username');
-    const emailInput = document.getElementById('email');
-    const apiKeyInput = document.getElementById('apiKey');
-    const promptTextarea = document.getElementById('customPrompt');
-    if (usernameInput) usernameInput.value = '';
-    if (emailInput) emailInput.value = '';
-    if (apiKeyInput) apiKeyInput.value = '';
-    if (promptTextarea) promptTextarea.value = DEFAULT_PROMPT;
-    
-    makeFieldReadOnly('username');
-    makeFieldReadOnly('email');
-    makeFieldReadOnly('apiKey');
-    
-    const refreshBtn = document.getElementById('refreshModelsBtn');
-    if (refreshBtn) refreshBtn.disabled = true;
-    const modelSelect = document.getElementById('aiModel');
-    if (modelSelect) {
-      modelSelect.innerHTML = '<option value="">-- Enter API key --</option>';
-      modelSelect.disabled = true;
+    // After saving an API key or base URL, refresh model list automatically
+    const providerId = document.getElementById('providerSelect').value;
+    if (fieldId === `apiKey_${providerId}` || fieldId === 'baseUrl_openai_compat') {
+      updateRefreshBtnState(providerId);
+      const stored = await chrome.storage.sync.get(ALL_STORAGE_KEYS);
+      await loadModelsForProvider(providerId, stored, true);
     }
-    
-    showStatus('User data cleared!', false);
-    showPromptStatus('English translation prompt reset to default', false);
-    
-  } catch (error) {
-    console.error('Clear cache error:', error);
-    showStatus('Failed to clear user data', true);
+  } catch (err) {
+    console.error(`[JATTUMNN] Save error for ${fieldId}:`, err);
+    showStatus(`Failed to save`, true);
   }
 }
 
 function makeFieldReadOnly(fieldId) {
   const input = document.getElementById(fieldId);
-  const btn = document.querySelector(`.edit-btn[data-field="${fieldId}"]`);
-  if (input) {
-    input.setAttribute('readonly', true);
-    if (btn) btn.textContent = '✏️ Edit';
+  const btn   = document.querySelector(`.edit-btn[data-field="${fieldId}"]`);
+  if (input) input.setAttribute('readonly', true);
+  if (btn)   btn.textContent = '✏️ Edit';
+}
+
+// ---------------------------------------------------------------------------
+// Clear user data
+// ---------------------------------------------------------------------------
+async function clearUserData() {
+  const confirmed = confirm(
+    '🗑️ Clear all user data?\n\nThis will reset your username, email, all API keys, base URL, and translation prompt.'
+  );
+  if (!confirmed) return;
+
+  const resetValues = {
+    username: '',
+    email: '',
+    customPrompt: DEFAULT_PROMPT,
+  };
+  PROVIDER_IDS.forEach(id => {
+    resetValues[`apiKey_${id}`] = '';
+    resetValues[`aiModel_${id}`] = '';
+  });
+  resetValues['baseUrl_openai_compat'] = '';
+
+  try {
+    await chrome.storage.sync.set(resetValues);
+
+    document.getElementById('username').value = '';
+    document.getElementById('email').value    = '';
+    document.getElementById('customPrompt').value = DEFAULT_PROMPT;
+
+    PROVIDER_IDS.forEach(id => {
+      const el = document.getElementById(`apiKey_${id}`);
+      if (el) el.value = '';
+    });
+    const baseUrlEl = document.getElementById('baseUrl_openai_compat');
+    if (baseUrlEl) baseUrlEl.value = '';
+
+    ['username', 'email', ...PROVIDER_IDS.map(id => `apiKey_${id}`), 'baseUrl_openai_compat']
+      .forEach(makeFieldReadOnly);
+
+    const providerId = document.getElementById('providerSelect').value;
+    applyProviderUI(providerId);
+
+    showStatus('User data cleared!', false);
+    showPromptStatus('Prompt reset to default', false);
+  } catch (err) {
+    console.error('[JATTUMNN] Clear data error:', err);
+    showStatus('Failed to clear user data', true);
   }
 }
 
+// ---------------------------------------------------------------------------
+// Translation cache stats
+// ---------------------------------------------------------------------------
 async function updateCacheStats() {
   try {
-    const all = await chrome.storage.local.get(null);
+    const all      = await chrome.storage.local.get(null);
     const transKeys = Object.keys(all).filter(k => k.startsWith('trans_'));
-    const entryCount = transKeys.length;
-
     let totalBytes = 0;
     for (const key of transKeys) {
-      totalBytes += (key.length + (all[key]?.length || 0));
+      const entry = all[key];
+      // entries are now objects {originalText, translatedText}
+      const entryStr = typeof entry === 'string' ? entry : JSON.stringify(entry);
+      totalBytes += key.length + entryStr.length;
     }
+    const totalMB    = totalBytes / (1024 * 1024);
+    const pctUsed    = Math.min(100, (totalBytes / (5 * 1024 * 1024)) * 100);
 
-    const totalMB = totalBytes / (1024 * 1024);
-    const percentUsed = Math.min(100, (totalBytes / (5 * 1024 * 1024)) * 100);
-
-    document.getElementById('cacheCount').textContent = entryCount;
-    document.getElementById('cacheSize').textContent = totalMB.toFixed(2);
-    document.getElementById('cacheProgressFill').style.width = `${percentUsed}%`;
+    document.getElementById('cacheCount').textContent       = transKeys.length;
+    document.getElementById('cacheSize').textContent        = totalMB.toFixed(2);
+    document.getElementById('cacheProgressFill').style.width = `${pctUsed}%`;
   } catch (err) {
-    console.error('Failed to get cache stats', err);
+    console.error('[JATTUMNN] Cache stats error:', err);
     document.getElementById('cacheCount').textContent = '?';
-    document.getElementById('cacheSize').textContent = '?';
+    document.getElementById('cacheSize').textContent  = '?';
   }
 }
 
 async function clearTranslationCache() {
-  const confirmed = confirm('🗑️ Clear all cached translations? This cannot be undone.');
-  if (!confirmed) return;
-
+  if (!confirm('🗑️ Clear all cached translations? This cannot be undone.')) return;
   try {
-    const response = await chrome.runtime.sendMessage({ action: 'clearTranslationCache' });
-    if (response?.success) {
+    const res = await chrome.runtime.sendMessage({ action: 'clearTranslationCache' });
+    if (res?.success) {
       showStatus('Translation cache cleared', false);
       await updateCacheStats();
     } else {
       showStatus('Failed to clear cache', true);
     }
-  } catch (err) {
+  } catch {
     showStatus('Error clearing cache', true);
   }
 }
 
-function switchTab(tabId) {
-  document.querySelectorAll('.tab-content').forEach(tab => {
-    tab.classList.remove('active');
-  });
-  document.querySelectorAll('.tab-btn').forEach(btn => {
-    btn.classList.remove('active');
-  });
-  document.getElementById(`${tabId}-tab`).classList.add('active');
-  document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
-}
-
+// ---------------------------------------------------------------------------
+// Prompt tab
+// ---------------------------------------------------------------------------
 async function savePrompt() {
-  const textarea = document.getElementById('customPrompt');
-  const customPrompt = textarea.value.trim();
-  if (!customPrompt) {
-    showPromptStatus('Prompt cannot be empty', true);
-    return;
-  }
+  const val = document.getElementById('customPrompt').value.trim();
+  if (!val) { showPromptStatus('Prompt cannot be empty', true); return; }
   try {
-    await chrome.storage.sync.set({ customPrompt });
-    showPromptStatus('English translation prompt saved!', false);
-  } catch (error) {
+    await chrome.storage.sync.set({ customPrompt: val });
+    showPromptStatus('Prompt saved!', false);
+  } catch {
     showPromptStatus('Failed to save prompt', true);
   }
 }
 
-function showPromptStatus(message, isError) {
-  const statusDiv = document.getElementById('promptStatus');
-  if (statusDiv) {
-    statusDiv.textContent = message;
-    statusDiv.style.color = isError ? '#f87171' : '#3b82f6';
-    setTimeout(() => { statusDiv.textContent = ''; }, 2000);
-  }
+// ---------------------------------------------------------------------------
+// Tab switching
+// ---------------------------------------------------------------------------
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(`${tabId}-tab`).classList.add('active');
+  document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
 }
 
-// Error Logs functions
+// ---------------------------------------------------------------------------
+// Error logs
+// ---------------------------------------------------------------------------
 async function loadErrorLogs() {
   const container = document.getElementById('logContainer');
   if (!container) return;
-  
   try {
-    const response = await chrome.runtime.sendMessage({ action: "getErrorLog" });
-    if (response && response.log) {
-      displayErrorLogs(response.log);
-    } else if (response && response.error) {
-      console.error('Failed to load logs:', response.error);
-      container.innerHTML = '<div style="color: #f87171;">Failed to load logs.</div>';
+    const res = await chrome.runtime.sendMessage({ action: 'getErrorLog' });
+    if (res?.log) {
+      displayErrorLogs(res.log);
     } else {
-      container.innerHTML = '<div style="color: #888;">No errors logged.</div>';
+      container.innerHTML = '<div style="color:#888;">No errors logged.</div>';
     }
-  } catch (e) {
-    container.innerHTML = '<div style="color: #f87171;">Error loading logs.</div>';
+  } catch {
+    container.innerHTML = '<div style="color:#f87171;">Error loading logs.</div>';
   }
 }
 
 function displayErrorLogs(logs) {
   const container = document.getElementById('logContainer');
-  if (!logs || logs.length === 0) {
-    container.innerHTML = '<div style="color: #888;">No errors logged.</div>';
+  if (!logs?.length) {
+    container.innerHTML = '<div style="color:#888;">No errors logged.</div>';
     return;
   }
-  
-  let html = '';
-  for (const log of logs) {
-    html += `
-      <div style="border-bottom: 1px solid #333; padding: 8px 0; margin-bottom: 8px;">
-        <div style="color: #f87171; font-weight: bold;">${new Date(log.timestamp).toLocaleString()}</div>
-        <div style="color: #ffaa66;">${escapeHtml(log.type)}: ${escapeHtml(log.message)}</div>
-        <div style="color: #aaa; font-size: 11px;">Context: ${escapeHtml(JSON.stringify(log.context))}</div>
-        ${log.stack ? `<details><summary style="cursor: pointer; color: #888;">Stack trace</summary><pre style="background: #000; color: #FFF; padding: 4px; margin-top: 4px; overflow-x: auto;">${escapeHtml(log.stack)}</pre></details>` : ''}
-      </div>
-    `;
-  }
-  container.innerHTML = html;
+  container.innerHTML = logs.map(log => `
+    <div style="border-bottom:1px solid #333;padding:8px 0;margin-bottom:8px;">
+      <div style="color:#f87171;font-weight:bold;">${new Date(log.timestamp).toLocaleString()}</div>
+      <div style="color:#ffaa66;">${escapeHtml(log.type)}: ${escapeHtml(log.message)}</div>
+      <div style="color:#aaa;font-size:11px;">Context: ${escapeHtml(JSON.stringify(log.context))}</div>
+      ${log.stack ? `<details><summary style="cursor:pointer;color:#888;">Stack trace</summary><pre style="background:#000;color:#fff;padding:4px;margin-top:4px;overflow-x:auto;">${escapeHtml(log.stack)}</pre></details>` : ''}
+    </div>
+  `).join('');
 }
 
 function escapeHtml(str) {
   if (!str) return '';
-  return str.replace(/[&<>]/g, function(m) {
-    if (m === '&') return '&amp;';
-    if (m === '<') return '&lt;';
-    if (m === '>') return '&gt;';
-    return m;
-  });
+  return String(str).replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]));
 }
 
 async function exportErrorLogs() {
-  const response = await chrome.runtime.sendMessage({ action: "getErrorLog" });
-  if (!response || !response.log) {
-    alert('No logs to export.');
-    return;
-  }
-  
-  const logs = response.log;
-  const dataStr = JSON.stringify(logs, null, 2);
-  const blob = new Blob([dataStr], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `jattumnn_error_logs_${new Date().toISOString().slice(0,19)}.json`;
+  const res = await chrome.runtime.sendMessage({ action: 'getErrorLog' });
+  if (!res?.log?.length) { alert('No logs to export.'); return; }
+  const blob = new Blob([JSON.stringify(res.log, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url,
+    download: `jattumnn_error_logs_${new Date().toISOString().slice(0, 19)}.json`,
+  });
   a.click();
   URL.revokeObjectURL(url);
 }
 
 async function clearErrorLogs() {
-  if (confirm('Clear all error logs?')) {
-    const response = await chrome.runtime.sendMessage({ action: "clearErrorLog" });
-    if (response && response.success) {
-      loadErrorLogs();
-      showStatus('Error logs cleared.', false);
-    } else {
-      showStatus('Failed to clear logs.', true);
-    }
+  if (!confirm('Clear all error logs?')) return;
+  const res = await chrome.runtime.sendMessage({ action: 'clearErrorLog' });
+  if (res?.success) {
+    loadErrorLogs();
+    showStatus('Error logs cleared.', false);
+  } else {
+    showStatus('Failed to clear logs.', true);
   }
 }
 
-// DOMContentLoaded
+// ---------------------------------------------------------------------------
+// DOMContentLoaded — wire everything up
+// ---------------------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   await updateCacheStats();
-  
-  document.getElementById('clearCacheBtn').addEventListener('click', clearCache);
-  document.getElementById('clearTransCacheBtn')?.addEventListener('click', clearTranslationCache);
-  document.getElementById('refreshCacheStatsBtn')?.addEventListener('click', updateCacheStats);
-  document.getElementById('savePromptBtn')?.addEventListener('click', savePrompt);
-  
-  setupField('username');
-  setupField('email');
-  setupField('apiKey');
-  
-  const refreshBtn = document.getElementById('refreshModelsBtn');
-  refreshBtn.addEventListener('click', async () => {
-    const apiKey = document.getElementById('apiKey').value;
-    if (!apiKey || apiKey.trim() === '') {
-      showStatus('API key is empty. Please enter and save your DeepSeek API key first.', true);
+
+  // --- User fields ---
+  ['username', 'email'].forEach(setupField);
+
+  // --- Per-provider API key fields ---
+  PROVIDER_IDS.forEach(id => setupField(`apiKey_${id}`));
+
+  // --- Base URL field for openai_compat ---
+  setupField('baseUrl_openai_compat');
+
+  // --- Provider selector ---
+  document.getElementById('providerSelect').addEventListener('change', async (e) => {
+    const providerId = e.target.value;
+    await chrome.storage.sync.set({ selectedProvider: providerId });
+    applyProviderUI(providerId);
+
+    // Load stored model list for the newly selected provider
+    const stored = await chrome.storage.sync.get(ALL_STORAGE_KEYS);
+    await loadModelsForProvider(providerId, stored, false);
+  });
+
+  // --- Refresh models button ---
+  document.getElementById('refreshModelsBtn').addEventListener('click', async () => {
+    const providerId = document.getElementById('providerSelect').value;
+    const apiKey     = document.getElementById(`apiKey_${providerId}`)?.value?.trim() || '';
+    const baseUrl    = document.getElementById('baseUrl_openai_compat')?.value?.trim() || '';
+
+    if (providerId === 'openai_compat' && !baseUrl) {
+      showStatus('Enter and save the Base URL first.', true);
       return;
     }
-    await fetchModels(apiKey, true);
+    if (providerId !== 'openai_compat' && !apiKey) {
+      showStatus('Enter and save the API key first.', true);
+      return;
+    }
+
+    const stored = await chrome.storage.sync.get(ALL_STORAGE_KEYS);
+    await fetchModels(providerId, apiKey, baseUrl, stored[`aiModel_${providerId}`] || '', true);
   });
-  
-  const aiModelSelect = document.getElementById('aiModel');
-  aiModelSelect.addEventListener('change', saveAiModel);
-  
-  // Tab switching
+
+  // --- Model dropdown change ---
+  document.getElementById('aiModel').addEventListener('change', saveAiModel);
+
+  // --- Clear buttons ---
+  document.getElementById('clearCacheBtn').addEventListener('click', clearUserData);
+  document.getElementById('clearTransCacheBtn')?.addEventListener('click', clearTranslationCache);
+
+  // --- Prompt tab ---
+  document.getElementById('savePromptBtn')?.addEventListener('click', savePrompt);
+
+  // --- Tab switching ---
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tabId = btn.getAttribute('data-tab');
       switchTab(tabId);
-      if (tabId === 'logs') {
-        loadErrorLogs();
-      }
+      if (tabId === 'logs') loadErrorLogs();
     });
   });
-  
-  // Logs buttons
+
+  // --- Log buttons ---
   document.getElementById('exportLogsBtn')?.addEventListener('click', exportErrorLogs);
   document.getElementById('clearLogsBtn')?.addEventListener('click', clearErrorLogs);
 });

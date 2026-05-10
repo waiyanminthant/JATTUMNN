@@ -342,3 +342,13 @@ textarea:focus {
   border-color: #3b82f6;
   box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
 }
+/* Inline code in helper notes */
+.helper-note code {
+  background-color: #1e1e1e;
+  border: 1px solid #3a3a3a;
+  border-radius: 3px;
+  padding: 0.1rem 0.35rem;
+  font-family: monospace;
+  font-size: 0.8em;
+  color: #93c5fd;
+}

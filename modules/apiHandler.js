@@ -1,48 +1,49 @@
-import { DEFAULT_DEEPSEEK_API_URL } from "./options.js";
+// apiHandler.js – provider-driven, no hardcoded URLs or formats.
 
-export async function callTranslationAPI(
-  apiKey,
-  aiModel,
-  systemPrompt,
-  text,
-  timeoutMs = 5000,
-) {
+export async function callTranslationAPI(provider, apiKey, model, systemPrompt, text, timeoutMs = 5000, customBaseUrl = '') {
+  // Resolve the completions URL — Gemini encodes model+key in URL, custom encodes base URL
+  let url;
+  if (provider.id === 'gemini') {
+    url = provider.completionsUrl(model, apiKey);
+  } else if (provider.id === 'openai_compat') {
+    const base = customBaseUrl.replace(/\/+$/, '');
+    url = `${base}/v1/chat/completions`;
+  } else {
+    url = provider.completionsUrl;
+  }
+
   const abortController = new AbortController();
   const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
 
-  const response = await fetch(DEFAULT_DEEPSEEK_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: aiModel,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: text },
-      ],
-      thinking: { type: "disabled" },
-      temperature: 0.3,
-      max_tokens: 2000,
-    }),
-    signal: abortController.signal,
-  });
-
-  return response;
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: provider.buildHeaders(apiKey),
+      body: JSON.stringify(provider.buildBody(model, systemPrompt, text)),
+      signal: abortController.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
 }
 
-export async function handleAPIError(apiResponse) {
-  let errorMsg = `API error: ${apiResponse.status}`;
-  if (apiResponse.status === 401)
-    errorMsg = "Invalid API key. Please check your DeepSeek API key.";
-  if (apiResponse.status === 429)
-    errorMsg = "Rate limit exceeded. Please wait and try again.";
-  if (apiResponse.status === 402)
-    errorMsg = "Insufficient balance. Please top up your DeepSeek account.";
+export async function handleAPIError(provider, apiResponse) {
+  const knownMessage = provider.httpErrorMessages?.[apiResponse.status];
+  let errorMsg = knownMessage ?? `API error: ${apiResponse.status}`;
+
+  // Try to extract a more specific message from the response body
   try {
     const data = await apiResponse.json();
-    errorMsg = data.error?.message || errorMsg;
-  } catch (e) {}
+    // OpenAI / DeepSeek / OpenAI-compat shape
+    const bodyMsg = data.error?.message
+      // Gemini shape
+      ?? data.error?.details?.[0]?.reason
+      ?? null;
+    if (bodyMsg) errorMsg = bodyMsg;
+  } catch (_) {}
+
   throw new Error(errorMsg);
 }

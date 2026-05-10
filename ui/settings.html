@@ -13,20 +13,20 @@
     <!-- Tab headers -->
     <div class="tabs">
       <button class="tab-btn active" data-tab="settings">Settings</button>
-      <button class="tab-btn" data-tab="prompt">English Translation Prompt</button>
+      <button class="tab-btn" data-tab="prompt">Translation Prompt</button>
       <button class="tab-btn" data-tab="logs">Error Logs</button>
     </div>
 
     <!-- Settings Tab -->
     <div id="settings-tab" class="tab-content active">
+
       <div class="description">
         <p>
-          JATTUMNN is a lightweight Chrome extension that lets you translate any text on the web with a single keyboard shortcut. 
-          Just hover over the text you want to translate and press <kbd>Alt</kbd> + <kbd>A</kbd> (or your chosen shortcut). 
-          It will be translated to English using the DeepSeek AI model of your choice.
+          JATTUMNN is a lightweight Chrome extension that lets you translate any text on the web with a single keyboard shortcut.
+          Just hover over the text you want to translate and press <kbd>Alt</kbd> + <kbd>A</kbd> (or your chosen shortcut).
         </p>
         <p class="credit">
-          Developed by 
+          Developed by
           <a href="https://github.com/waiyanminthant" target="_blank" rel="noopener noreferrer">BattlePants</a>
         </p>
         <p class="credit">
@@ -34,6 +34,7 @@
         </p>
       </div>
 
+      <!-- User fields -->
       <div class="field">
         <label>👤 Username</label>
         <div class="field-row">
@@ -55,26 +56,96 @@
         </div>
       </div>
 
+      <hr>
+
+      <!-- Provider selector -->
       <div class="field">
-        <label>🔑 DeepSeek API Key</label>
+        <label>🌐 AI Provider</label>
+        <select id="providerSelect" class="model-select">
+          <option value="deepseek">DeepSeek</option>
+          <option value="openai">OpenAI</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="openai_compat">OpenAI-Compatible</option>
+        </select>
+      </div>
+
+      <!-- OpenAI-Compatible base URL (shown only for openai_compat) -->
+      <div class="field provider-field" id="field-baseUrl" style="display:none;">
+        <label>🔗 Base URL</label>
         <div class="field-row">
-          <input type="password" id="apiKey" placeholder="sk-..." readonly>
-          <button type="button" class="edit-btn" data-field="apiKey">✏️ Edit</button>
+          <input type="text" id="baseUrl_openai_compat" placeholder="http://localhost:11434" readonly>
+          <button type="button" class="edit-btn" data-field="baseUrl_openai_compat">✏️ Edit</button>
+        </div>
+        <div class="helper-note">
+          💡 The root URL of your OpenAI-compatible server. JATTUMNN will append <code>/v1/chat/completions</code> automatically.
+          Works with Ollama (<code>http://localhost:11434</code>), LM Studio, Groq, Together AI, and more.
         </div>
       </div>
 
-      <div class="field">
-        <label>🤖 DeepSeek AI Model</label>
+      <!-- Per-provider API key fields (one visible at a time) -->
+      <div class="field provider-field" id="field-apiKey-deepseek">
+        <label id="apiKeyLabel">🔑 DeepSeek API Key</label>
         <div class="field-row">
-          <select id="aiModel" class="model-select" disabled>
-            <option value="">-- Enter API key and refresh --</option>
-          </select>
-          <button type="button" id="refreshModelsBtn" class="refresh-btn">🔄 Refresh</button>
+          <input type="password" id="apiKey_deepseek" placeholder="sk-..." readonly>
+          <button type="button" class="edit-btn" data-field="apiKey_deepseek">✏️ Edit</button>
+        </div>
+        <div class="helper-note" id="apiKeyNote-deepseek">
+          💡 Get your key from
+          <a href="https://platform.deepseek.com/api_keys" id="apiKeyDocsLink" target="_blank" rel="noopener noreferrer">DeepSeek Platform</a>.
+          (Minimum 2 USD Top Up)
+        </div>
+      </div>
+
+      <div class="field provider-field" id="field-apiKey-openai" style="display:none;">
+        <label>🔑 OpenAI API Key</label>
+        <div class="field-row">
+          <input type="password" id="apiKey_openai" placeholder="sk-..." readonly>
+          <button type="button" class="edit-btn" data-field="apiKey_openai">✏️ Edit</button>
         </div>
         <div class="helper-note">
-          💡 You need to pass the API key from
-          <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noopener noreferrer">DeepSeek Platform</a>
-          first. (Minimum 2 USD Top Up) Then enter and save it above.
+          💡 Get your key from
+          <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI Platform</a>.
+        </div>
+      </div>
+
+      <div class="field provider-field" id="field-apiKey-gemini" style="display:none;">
+        <label>🔑 Gemini API Key</label>
+        <div class="field-row">
+          <input type="password" id="apiKey_gemini" placeholder="AIza..." readonly>
+          <button type="button" class="edit-btn" data-field="apiKey_gemini">✏️ Edit</button>
+        </div>
+        <div class="helper-note">
+          💡 Get your key from
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>.
+        </div>
+      </div>
+
+      <div class="field provider-field" id="field-apiKey-openai_compat" style="display:none;">
+        <label>🔑 API Key <span style="color:#555;font-size:0.75rem;text-transform:none;">(leave blank if not required)</span></label>
+        <div class="field-row">
+          <input type="password" id="apiKey_openai_compat" placeholder="API key (optional)" readonly>
+          <button type="button" class="edit-btn" data-field="apiKey_openai_compat">✏️ Edit</button>
+        </div>
+      </div>
+
+      <!-- Model selector (shared UI, provider-aware underneath) -->
+      <div class="field">
+        <label>🤖 AI Model</label>
+        <div class="field-row">
+          <select id="aiModel" class="model-select" disabled>
+            <option value="">-- Configure provider above and refresh --</option>
+          </select>
+          <button type="button" id="refreshModelsBtn" class="refresh-btn" disabled>🔄 Refresh</button>
+        </div>
+        <!-- Manual model input shown when model list fetch fails for openai_compat -->
+        <input
+          type="text"
+          id="manualModel"
+          placeholder="Type model name (e.g. llama3, mistral)"
+          style="display:none; margin-top:8px;"
+        >
+        <div class="helper-note" id="modelHelperNote">
+          💡 Save your API key first, then click Refresh to load available models.
         </div>
       </div>
 
@@ -82,7 +153,7 @@
       <div class="cache-panel">
         <label>📀 Translation Cache</label>
         <div class="cache-stats">
-          <span id="cacheCount">0</span> translations cached
+          <span id="cacheCount">0</span> translations cached &nbsp;·&nbsp;
           <span id="cacheSize">0.00</span> MB used
         </div>
         <div class="progress-bar">
@@ -92,18 +163,18 @@
       </div>
 
       <hr>
-      <button id="clearCacheBtn" class="clear-btn">🗑️ Clear User Data (Username/Email/API Key)</button>
+      <button id="clearCacheBtn" class="clear-btn">🗑️ Clear User Data (Username / Email / All API Keys)</button>
       <div id="statusMsg" class="status"></div>
     </div>
 
-    <!-- English Translation Prompt Tab -->
+    <!-- Translation Prompt Tab -->
     <div id="prompt-tab" class="tab-content">
       <div class="field">
-        <label>📝 English Translation Prompt</label>
+        <label>📝 Translation Prompt</label>
         <textarea id="customPrompt" rows="6" placeholder="Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations."></textarea>
         <div class="helper-note">
-          💡 This prompt tells the AI how to translate. Default is optimized for English translation. 
-          Modify it to change translation style or add extra instructions (e.g., "Translate formally" or "Use simple English").
+          💡 This prompt instructs the AI how to translate. The default is optimised for English output.
+          You can modify it to change style, formality, or target language.
         </div>
       </div>
       <div class="field-row">
@@ -125,8 +196,8 @@
         </div>
       </div>
     </div>
-  </div>
 
+  </div>
   <script src="settings.js"></script>
 </body>
 </html>
