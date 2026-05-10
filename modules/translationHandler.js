@@ -2,7 +2,6 @@ import { TranslationCache } from "./translationCache.js";
 import { checkForActiveTab } from "./utils.js";
 import { logError } from "./errorLogger.js";
 import {
-  DEFAULT_DEEPSEEK_API_URL,
   DEFAULT_ENG_TRANSLATION_PROMPT,
 } from "./options.js";
 import { callTranslationAPI, handleAPIError } from "./apiHandler.js";
@@ -38,10 +37,6 @@ export async function translateText(text, timeoutMs = 5000) {
       ? customPrompt.trim()
       : DEFAULT_ENG_TRANSLATION_PROMPT;
 
-  // Set up an AbortController to handle timeouts for the API request
-  const abortController = new AbortController();
-  const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
-
   try {
     const response = await callTranslationAPI(
       apiKey,
@@ -51,10 +46,8 @@ export async function translateText(text, timeoutMs = 5000) {
       timeoutMs,
     );
 
-    clearTimeout(timeoutId);
-
     if (!response.ok) {
-      handleAPIError(response);
+      await handleAPIError(response);
     }
 
     const data = await response.json();
@@ -71,7 +64,6 @@ export async function translateText(text, timeoutMs = 5000) {
 
     return translated;
   } catch (error) {
-    clearTimeout(timeoutId);
     if (error.name === "AbortError") {
       const timeoutError = new Error(
         `Translation timed out after ${timeoutMs / 1000} seconds. Please try again.`,

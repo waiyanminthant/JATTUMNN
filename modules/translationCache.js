@@ -18,14 +18,16 @@ export class TranslationCache {
   }
   async get(originalText) {
     const key = this._getStorageKey(originalText);
-    const result = await chrome.storage.local.get(key);
-    if (result[key]) {
-      const recent = await this._getRecentKeys();
+    const result = await chrome.storage.local.get([key, "recentKeys"]);
+    const entry = result[key];
+    // Collision guard: verify the stored text matches before returning
+    if (entry && entry.originalText === originalText) {
+      const recent = result.recentKeys || [];
       const idx = recent.indexOf(key);
       if (idx !== -1) recent.splice(idx, 1);
       recent.unshift(key);
       await this._saveRecentKeys(recent);
-      return result[key];
+      return entry.translatedText;
     }
     return null;
   }
@@ -40,7 +42,7 @@ export class TranslationCache {
       await chrome.storage.local.remove(oldestKey);
     }
     await Promise.all([
-      chrome.storage.local.set({ [key]: translatedText }),
+      chrome.storage.local.set({ [key]: { originalText, translatedText } }),
       this._saveRecentKeys(recent),
     ]);
   }

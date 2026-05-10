@@ -1,7 +1,12 @@
 import { DEFAULT_DEEPSEEK_API_URL } from "./options.js";
 
-export async function callTranslationAPI(apiKey, aiModel, systemPrompt, text, timeoutMs = 5000) {
-
+export async function callTranslationAPI(
+  apiKey,
+  aiModel,
+  systemPrompt,
+  text,
+  timeoutMs = 5000,
+) {
   const abortController = new AbortController();
   const timeoutId = setTimeout(() => abortController.abort(), timeoutMs);
 
@@ -27,7 +32,7 @@ export async function callTranslationAPI(apiKey, aiModel, systemPrompt, text, ti
   return response;
 }
 
-export function handleAPIError(apiResponse) {
+export async function handleAPIError(apiResponse) {
   let errorMsg = `API error: ${apiResponse.status}`;
   if (apiResponse.status === 401)
     errorMsg = "Invalid API key. Please check your DeepSeek API key.";
@@ -36,8 +41,8 @@ export function handleAPIError(apiResponse) {
   if (apiResponse.status === 402)
     errorMsg = "Insufficient balance. Please top up your DeepSeek account.";
   try {
-    const data = apiResponse.json();
+    const data = await apiResponse.json();
     errorMsg = data.error?.message || errorMsg;
   } catch (e) {}
-   throw new Error(errorMsg);
+  throw new Error(errorMsg);
 }

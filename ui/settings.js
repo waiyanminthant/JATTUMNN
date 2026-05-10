@@ -1,5 +1,6 @@
 // settings.js – JATTUMNN
-// Updated with English Translation Prompt and Error Logs tab
+
+const DEFAULT_PROMPT = "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
 
 function showStatus(message, isError = false) {
   const statusDiv = document.getElementById('statusMsg');
@@ -14,31 +15,26 @@ function generateUUID() {
 
 async function loadSettings() {
   const result = await chrome.storage.sync.get(['username', 'userId', 'email', 'apiKey', 'aiModel', 'customPrompt']);
-  
+
   if (!result.userId) {
     const newId = generateUUID();
     await chrome.storage.sync.set({ userId: newId });
     result.userId = newId;
   }
-  
+
   document.getElementById('username').value = result.username || '';
   document.getElementById('userId').value = result.userId;
   document.getElementById('email').value = result.email || '';
   document.getElementById('apiKey').value = result.apiKey || '';
-  
+
   const aiModelSelect = document.getElementById('aiModel');
   if (result.aiModel) {
     aiModelSelect.value = result.aiModel;
   }
-  
-  // Load custom prompt (with condensed default if not set)
-  const promptTextarea = document.getElementById('customPrompt');
-  if (result.customPrompt) {
-    promptTextarea.value = result.customPrompt;
-  } else {
-    promptTextarea.value = "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
-  }
-  
+
+  // Load custom prompt — all fields are fetched in one call above
+  document.getElementById('customPrompt').value = result.customPrompt || DEFAULT_PROMPT;
+
   if (result.apiKey && result.apiKey.trim() !== '') {
     document.getElementById('refreshModelsBtn').disabled = false;
     fetchModels(result.apiKey, false);
@@ -169,13 +165,13 @@ async function clearCache() {
   if (!confirmed) return;
   
   try {
-    await chrome.storage.sync.set({ 
-      username: '', 
-      email: '', 
+    await chrome.storage.sync.set({
+      username: '',
+      email: '',
       apiKey: '',
-      customPrompt: 'Translate to English. Keep formatting, spacing, and the separator \'__SEP__\' unchanged. Output only the translation, no explanations.'
+      customPrompt: DEFAULT_PROMPT,
     });
-    
+
     const usernameInput = document.getElementById('username');
     const emailInput = document.getElementById('email');
     const apiKeyInput = document.getElementById('apiKey');
@@ -183,7 +179,7 @@ async function clearCache() {
     if (usernameInput) usernameInput.value = '';
     if (emailInput) emailInput.value = '';
     if (apiKeyInput) apiKeyInput.value = '';
-    if (promptTextarea) promptTextarea.value = 'Translate to English. Keep formatting, spacing, and the separator \'__SEP__\' unchanged. Output only the translation, no explanations.';
+    if (promptTextarea) promptTextarea.value = DEFAULT_PROMPT;
     
     makeFieldReadOnly('username');
     makeFieldReadOnly('email');
@@ -265,18 +261,6 @@ function switchTab(tabId) {
   });
   document.getElementById(`${tabId}-tab`).classList.add('active');
   document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
-}
-
-async function loadPrompt() {
-  const { customPrompt } = await chrome.storage.sync.get('customPrompt');
-  const textarea = document.getElementById('customPrompt');
-  if (textarea) {
-    if (customPrompt) {
-      textarea.value = customPrompt;
-    } else {
-      textarea.value = "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
-    }
-  }
 }
 
 async function savePrompt() {
@@ -388,7 +372,6 @@ async function clearErrorLogs() {
 document.addEventListener('DOMContentLoaded', async () => {
   await loadSettings();
   await updateCacheStats();
-  await loadPrompt();
   
   document.getElementById('clearCacheBtn').addEventListener('click', clearCache);
   document.getElementById('clearTransCacheBtn')?.addEventListener('click', clearTranslationCache);
