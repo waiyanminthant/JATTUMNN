@@ -52,7 +52,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     const texts = textNodes.map((node) => node.nodeValue);
-    const combinedText = texts.join(JATTUMNN_SEPARATOR);
+    const combinedText = texts.join(" " + JATTUMNN_SEPARATOR + " ");
     const requestId =
       Date.now() + "-" + Math.random().toString(36).substr(2, 6);
     const startTime = performance.now();
