@@ -1,54 +1,81 @@
 import { TranslationCache } from "./translationCache.js";
-import { checkForActiveTab } from "./utils.js";
+import { checkForActiveTab, simpleHash } from "./utils.js";
 import { logError } from "./errorLogger.js";
 import { DEFAULT_ENG_TRANSLATION_PROMPT, getProvider } from "./options.js";
 import { callTranslationAPI, handleAPIError } from "./apiHandler.js";
 
 const translationCache = new TranslationCache();
 
+// Build context object that uniquely defines the translation configuration
+const context = {
+  provider: providerId,
+  model: model,
+  promptHash: simpleHash(
+    settings.customPrompt?.trim() || DEFAULT_ENG_TRANSLATION_PROMPT,
+  ),
+};
+
 export async function translateText(text, timeoutMs = 5000) {
   // Cache check first
-  const cached = await translationCache.get(text);
+  const cached = await translationCache.get(text, context);
   if (cached) {
-    console.log("[JATTUMNN] Using cached translation for:", text.substring(0, 50));
+    console.log(
+      "[JATTUMNN] Using cached translation for:",
+      text.substring(0, 50),
+    );
     return cached;
   }
 
   // Load all settings in one call
-  const settings = await chrome.storage.sync.get([
-    'selectedProvider',
-    'apiKey_deepseek',
-    'apiKey_openai',
-    'apiKey_gemini',
-    'apiKey_openai_compat',
-    'baseUrl_openai_compat',
-    'aiModel_deepseek',
-    'aiModel_openai',
-    'aiModel_gemini',
-    'aiModel_openai_compat',
-    'customPrompt',
+  const settings = await chrome.storage.local.get([
+    "selectedProvider",
+    "apiKey_deepseek",
+    "apiKey_openai",
+    "apiKey_gemini",
+    "apiKey_openai_compat",
+    "baseUrl_openai_compat",
+    "aiModel_deepseek",
+    "aiModel_openai",
+    "aiModel_gemini",
+    "aiModel_openai_compat",
+    "customPrompt",
   ]);
 
   // Resolve provider — default to deepseek for backwards compat
-  const providerId = settings.selectedProvider || 'deepseek';
+  const providerId = settings.selectedProvider || "deepseek";
   const provider = getProvider(providerId);
 
-  const apiKey = settings[`apiKey_${providerId}`] || '';
-  const model  = settings[`aiModel_${providerId}`] || '';
-  const customBaseUrl = settings['baseUrl_openai_compat'] || '';
+  const apiKey = settings[`apiKey_${providerId}`] || "";
+  const model = settings[`aiModel_${providerId}`] || "";
+  const customBaseUrl = settings["baseUrl_openai_compat"] || "";
 
   // Validate
-  if (provider.id !== 'openai_compat' && !apiKey)
-    throw new Error(`API key not set for ${provider.name}. Please configure in settings.`);
-  if (provider.id === 'openai_compat' && !customBaseUrl)
-    throw new Error('Base URL not set for OpenAI-Compatible. Please configure in settings.');
+  if (provider.id !== "openai_compat" && !apiKey)
+    throw new Error(
+      `API key not set for ${provider.name}. Please configure in settings.`,
+    );
+  if (provider.id === "openai_compat" && !customBaseUrl)
+    throw new Error(
+      "Base URL not set for OpenAI-Compatible. Please configure in settings.",
+    );
   if (!model)
-    throw new Error(`AI model not selected for ${provider.name}. Please configure in settings.`);
+    throw new Error(
+      `AI model not selected for ${provider.name}. Please configure in settings.`,
+    );
 
-  const systemPrompt = settings.customPrompt?.trim() || DEFAULT_ENG_TRANSLATION_PROMPT;
+  const systemPrompt =
+    settings.customPrompt?.trim() || DEFAULT_ENG_TRANSLATION_PROMPT;
 
   try {
-    const response = await callTranslationAPI(provider, apiKey, model, systemPrompt, text, timeoutMs, customBaseUrl);
+    const response = await callTranslationAPI(
+      provider,
+      apiKey,
+      model,
+      systemPrompt,
+      text,
+      timeoutMs,
+      customBaseUrl,
+    );
 
     if (!response.ok) {
       await handleAPIError(provider, response);
@@ -57,16 +84,23 @@ export async function translateText(text, timeoutMs = 5000) {
     const data = await response.json();
     const translated = provider.parseResponse(data);
     if (!translated)
-      throw new Error("No translation returned from API. Returned data: " + JSON.stringify(data));
+      throw new Error(
+        "No translation returned from API. Returned data: " +
+          JSON.stringify(data),
+      );
 
-    await translationCache.set(text, translated);
+    await translationCache.set(text, translated, context);
     console.log("[JATTUMNN] Cached translation for:", text.substring(0, 50));
     return translated;
-
   } catch (error) {
-    if (error.name === 'AbortError') {
-      const timeoutError = new Error(`Translation timed out after ${timeoutMs / 1000} seconds. Please try again.`);
-      await logError(timeoutError, { provider: providerId, timeout: timeoutMs });
+    if (error.name === "AbortError") {
+      const timeoutError = new Error(
+        `Translation timed out after ${timeoutMs / 1000} seconds. Please try again.`,
+      );
+      await logError(timeoutError, {
+        provider: providerId,
+        timeout: timeoutMs,
+      });
       throw timeoutError;
     }
     await logError(error, { provider: providerId });
@@ -82,11 +116,13 @@ export async function handleHoverTranslation() {
       return;
     }
 
-    const response = await chrome.tabs.sendMessage(activeTab.id, { action: "getTextToTranslate" });
+    const response = await chrome.tabs.sendMessage(activeTab.id, {
+      action: "getTextToTranslate",
+    });
     if (response.skip) return;
 
     const hoveredText = response?.text?.trim();
-    const requestId   = response?.requestId;
+    const requestId = response?.requestId;
     if (!hoveredText || !requestId) {
       console.warn("[JATTUMNN] No text or missing requestId");
       return;
@@ -104,7 +140,10 @@ export async function handleHoverTranslation() {
       });
     } catch (translationError) {
       console.error("[JATTUMNN] Translation error:", translationError);
-      await logError(translationError, { action: "hover", textPreview: hoveredText.substring(0, 100) });
+      await logError(translationError, {
+        action: "hover",
+        textPreview: hoveredText.substring(0, 100),
+      });
       await chrome.tabs.sendMessage(activeTab.id, {
         action: "displayTranslation",
         requestId,

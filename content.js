@@ -1,8 +1,3 @@
-// content.js – JATTUMNN
-// Replaces all non‑empty text nodes inside the container, preserving HTML structure.
-// Uses fixed separator __SEP__ that the AI is instructed to preserve.
-// Includes error display, spinner, and revert functionality.
-
 import {
   showSpinner,
   getTextNodes,
@@ -94,6 +89,21 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const pending = activeRequests.get(requestId);
 
     if (pending && pending.element) {
+      // CRITICAL FIX: Check if the element is still in the DOM
+      if (!pending.element.isConnected) {
+        // Element was removed from DOM while translation was in flight
+        console.warn(
+          `[JATTUMNN] Translation completed but target element no longer in DOM. Request ${requestId} abandoned.`,
+        );
+        // Clean up any spinner that might still be attached (if element somehow still has it)
+        if (pending.element.querySelector) {
+          hideSpinner(pending.element);
+        }
+        activeRequests.delete(requestId);
+        sendResponse({ received: true });
+        return true;
+      }
+
       if (error) {
         console.error(`[JATTUMNN] Translation error: ${error}`);
         hideSpinner(pending.element);
@@ -115,6 +125,4 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ received: true });
     return true;
   }
-
-  return true;
 });

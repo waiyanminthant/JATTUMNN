@@ -3,7 +3,7 @@
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-const DEFAULT_PROMPT = "Translate to English. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
+const DEFAULT_PROMPT = "Translate to English. Keep formatting, spacing, and the separator '\uFFFF' unchanged. Output only the translation, no explanations.";
 
 const PROVIDER_IDS = ['deepseek', 'openai', 'gemini', 'openai_compat'];
 
@@ -97,11 +97,11 @@ function updateRefreshBtnState(providerId) {
 // Load all settings (single storage call)
 // ---------------------------------------------------------------------------
 async function loadSettings() {
-  const result = await chrome.storage.sync.get(ALL_STORAGE_KEYS);
+  const result = await chrome.storage.local.get(ALL_STORAGE_KEYS);
 
   // --- Migrate legacy single apiKey -> apiKey_deepseek ---
   if (result.apiKey && !result.apiKey_deepseek) {
-    await chrome.storage.sync.set({ apiKey_deepseek: result.apiKey });
+    await chrome.storage.local.set({ apiKey_deepseek: result.apiKey });
     result.apiKey_deepseek = result.apiKey;
     console.log('[JATTUMNN] Migrated legacy apiKey -> apiKey_deepseek');
   }
@@ -109,7 +109,7 @@ async function loadSettings() {
   // --- Auto-generate userId ---
   if (!result.userId) {
     const newId = generateUUID();
-    await chrome.storage.sync.set({ userId: newId });
+    await chrome.storage.local.set({ userId: newId });
     result.userId = newId;
   }
 
@@ -220,7 +220,7 @@ async function fetchModels(providerId, apiKey, baseUrl, savedModel = '', showSta
       : filtered[0].id;
 
     select.value = selected;
-    await chrome.storage.sync.set({ [`aiModel_${providerId}`]: selected });
+    await chrome.storage.local.set({ [`aiModel_${providerId}`]: selected });
 
     if (showStatusMsg) showStatus(`Loaded ${filtered.length} model(s)`, false);
 
@@ -266,7 +266,7 @@ function showManualModelInput(savedModel = '') {
   manualInput.addEventListener('change', async () => {
     const val = manualInput.value.trim();
     if (val) {
-      await chrome.storage.sync.set({ aiModel_openai_compat: val });
+      await chrome.storage.local.set({ aiModel_openai_compat: val });
       showStatus('Manual model name saved', false);
     }
   }, { once: false });
@@ -280,7 +280,7 @@ async function saveAiModel() {
   const select     = document.getElementById('aiModel');
   const model      = select.value;
   if (!model) return;
-  await chrome.storage.sync.set({ [`aiModel_${providerId}`]: model });
+  await chrome.storage.local.set({ [`aiModel_${providerId}`]: model });
   showStatus('Model saved', false);
 }
 
@@ -309,7 +309,7 @@ async function saveFieldAndLock(fieldId) {
   const value = input.value; // don't trim passwords / URLs
 
   try {
-    await chrome.storage.sync.set({ [fieldId]: value });
+    await chrome.storage.local.set({ [fieldId]: value });
     input.setAttribute('readonly', true);
     btn.textContent = '✏️ Edit';
 
@@ -322,7 +322,7 @@ async function saveFieldAndLock(fieldId) {
     const providerId = document.getElementById('providerSelect').value;
     if (fieldId === `apiKey_${providerId}` || fieldId === 'baseUrl_openai_compat') {
       updateRefreshBtnState(providerId);
-      const stored = await chrome.storage.sync.get(ALL_STORAGE_KEYS);
+      const stored = await chrome.storage.local.get(ALL_STORAGE_KEYS);
       await loadModelsForProvider(providerId, stored, true);
     }
   } catch (err) {
@@ -359,7 +359,7 @@ async function clearUserData() {
   resetValues['baseUrl_openai_compat'] = '';
 
   try {
-    await chrome.storage.sync.set(resetValues);
+    await chrome.storage.local.set(resetValues);
 
     document.getElementById('username').value = '';
     document.getElementById('email').value    = '';
@@ -435,7 +435,7 @@ async function savePrompt() {
   const val = document.getElementById('customPrompt').value.trim();
   if (!val) { showPromptStatus('Prompt cannot be empty', true); return; }
   try {
-    await chrome.storage.sync.set({ customPrompt: val });
+    await chrome.storage.local.set({ customPrompt: val });
     showPromptStatus('Prompt saved!', false);
   } catch {
     showPromptStatus('Failed to save prompt', true);
@@ -534,11 +534,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- Provider selector ---
   document.getElementById('providerSelect').addEventListener('change', async (e) => {
     const providerId = e.target.value;
-    await chrome.storage.sync.set({ selectedProvider: providerId });
+    await chrome.storage.local.set({ selectedProvider: providerId });
     applyProviderUI(providerId);
 
     // Load stored model list for the newly selected provider
-    const stored = await chrome.storage.sync.get(ALL_STORAGE_KEYS);
+    const stored = await chrome.storage.local.get(ALL_STORAGE_KEYS);
     await loadModelsForProvider(providerId, stored, false);
   });
 
@@ -557,7 +557,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       return;
     }
 
-    const stored = await chrome.storage.sync.get(ALL_STORAGE_KEYS);
+    const stored = await chrome.storage.local.get(ALL_STORAGE_KEYS);
     await fetchModels(providerId, apiKey, baseUrl, stored[`aiModel_${providerId}`] || '', true);
   });
 
