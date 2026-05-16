@@ -1,6 +1,6 @@
-export const JATTUMNN_SEPARATOR = '\uFFFF';
+export const JATTUMNN_SEPARATOR = '__SEP__';
 export const MAX_LOG_ENTRIES = 100;
-export const DEFAULT_ENG_TRANSLATION_PROMPT = "Translate to English. Keep formatting, spacing, and the separator '\uFFFF' unchanged. Output only the translation, no explanations.";
+export const DEFAULT_ENG_TRANSLATION_PROMPT = "Translate to English. For proper nouns translate to their original English spelling. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
 
 // ---------------------------------------------------------------------------
 // Provider Registry
@@ -18,7 +18,7 @@ export const PROVIDERS = [
     docsLabel: 'DeepSeek Platform',
     docsNote: '(Minimum 2 USD Top Up)',
     modelsUrl: 'https://api.deepseek.com/models',
-    completionsUrl: 'https://api.deepseek.com/v1/chat/completions',
+    completionsUrl: 'https://api.deepseek.com/chat/completions',
     hasCustomBaseUrl: false,
     filterModels: (models) => models.filter(m => m.owned_by === 'deepseek'),
     buildHeaders: (apiKey) => ({

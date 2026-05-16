@@ -8,15 +8,29 @@ chrome.commands.onCommand.addListener(async (command) => {
     case "translate-text":
       await handleHoverTranslation();
       break;
-    // case "translate-input":
-    //   await handleInputTranslation();
-    //   break;
+    case "translate-input":
+      await handleInputTranslation();
+      break;
     default:
       console.warn("Background: unknown command received:", command);
   }
 });
 
-// ----- Message Listener for Cache Management and Error Logging -----
+// ----- Handler for input modal translation -----
+async function handleInputTranslation() {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) {
+      console.warn("[JATTUMNN] No active tab found");
+      return;
+    }
+    await chrome.tabs.sendMessage(tab.id, { action: "showTranslationModal" });
+  } catch (err) {
+    console.error("[JATTUMNN] Error showing modal:", err);
+  }
+}
+
+// ----- Message Listener for Cache Management, Error Logging, and Input Translation -----
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.action) {
     case "clearTranslationCache":
@@ -42,6 +56,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .then(() => sendResponse({ success: true }))
         .catch((e) => sendResponse({ error: e.message }));
       return true;
+    case "translateInputText":
+      handleInputTranslationRequest(message, sendResponse);
+      return true;
     default:
       console.warn(
         "Background: unknown message action received:",
@@ -49,3 +66,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       );
   }
 });
+
+// ----- Handler for input text translation request from modal -----
+async function handleInputTranslationRequest(message, sendResponse) {
+  try {
+    const { translateInputText } = await import("./modules/translationHandler.js");
+
+    const translated = await translateInputText(
+      message.text,
+      message.targetLanguage,
+      message.customPrompt,
+      {
+        selectedProvider: message.selectedProvider,
+        apiKey_deepseek: message.apiKey_deepseek,
+        apiKey_openai: message.apiKey_openai,
+        apiKey_gemini: message.apiKey_gemini,
+        apiKey_openai_compat: message.apiKey_openai_compat,
+        baseUrl_openai_compat: message.baseUrl_openai_compat,
+        aiModel_deepseek: message.aiModel_deepseek,
+        aiModel_openai: message.aiModel_openai,
+        aiModel_gemini: message.aiModel_gemini,
+        aiModel_openai_compat: message.aiModel_openai_compat,
+      },
+      5000 // timeout
+    );
+
+    sendResponse({ translatedText: translated, error: null });
+  } catch (error) {
+    console.error("[JATTUMNN] Input translation error:", error);
+    sendResponse({ translatedText: null, error: error.message || "Translation failed" });
+  }
+}

@@ -1,10 +1,9 @@
 // settings.js – JATTUMNN  (multi-provider edition)
 
+const DEFAULT_ENG_TRANSLATION_PROMPT = "Translate to English. For proper nouns (names of people, places, brands), reverse-transliterate them back to their original English spelling. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations."
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
-const DEFAULT_PROMPT = "Translate to English. Keep formatting, spacing, and the separator '\uFFFF' unchanged. Output only the translation, no explanations.";
-
 const PROVIDER_IDS = ['deepseek', 'openai', 'gemini', 'openai_compat'];
 
 // All storage keys we ever read or write
@@ -135,7 +134,7 @@ async function loadSettings() {
   applyProviderUI(providerId);
 
   // --- Prompt ---
-  document.getElementById('customPrompt').value = result.customPrompt || DEFAULT_PROMPT;
+  document.getElementById('customPrompt').value = result.customPrompt || DEFAULT_ENG_TRANSLATION_PROMPT;
 
   // --- Load saved model then try to populate model list ---
   await loadModelsForProvider(providerId, result, false);
@@ -350,7 +349,7 @@ async function clearUserData() {
   const resetValues = {
     username: '',
     email: '',
-    customPrompt: DEFAULT_PROMPT,
+    customPrompt: DEFAULT_ENG_TRANSLATION_PROMPT,
   };
   PROVIDER_IDS.forEach(id => {
     resetValues[`apiKey_${id}`] = '';
@@ -363,7 +362,7 @@ async function clearUserData() {
 
     document.getElementById('username').value = '';
     document.getElementById('email').value    = '';
-    document.getElementById('customPrompt').value = DEFAULT_PROMPT;
+    document.getElementById('customPrompt').value = DEFAULT_ENG_TRANSLATION_PROMPT;
 
     PROVIDER_IDS.forEach(id => {
       const el = document.getElementById(`apiKey_${id}`);
