@@ -1,12 +1,17 @@
 {
   "manifest_version": 3,
   "name": "JATTUMNN",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Just Another Translate Tool U Might Not Need",
   "permissions": ["activeTab", "storage"],
   "web_accessible_resources": [
     {
-      "resources": ["content.js", "modules/*.js"],
+      "resources": [
+        "content.js", 
+        "modules/*.js", 
+        "ui/modal.css",
+        "ui/modal.html"
+      ],
       "matches": ["<all_urls>"]
     }
   ],
@@ -26,6 +31,12 @@
         "default": "Alt+A"
       },
       "description": "Translate hovered text"
+    },
+    "translate-input": {
+      "suggested_key": {
+        "default": "Alt+Q"
+      },
+      "description": "Open translation modal"
     }
   },
   "options_ui": {

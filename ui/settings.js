@@ -1,6 +1,12 @@
-// settings.js – JATTUMNN  (multi-provider edition)
+// settings.js – JATTUMNN (multi-provider edition) with modal settings
 
 const DEFAULT_ENG_TRANSLATION_PROMPT = "Translate to English. For proper nouns (names of people, places, brands), reverse-transliterate them back to their original English spelling. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations."
+
+// Default modal settings
+const DEFAULT_TARGET_LANGUAGE = "th";
+const DEFAULT_USE_MODAL_CUSTOM_PROMPT = false;
+const DEFAULT_MODAL_CUSTOM_PROMPT = "Translate to {targetLanguage}. For proper nouns (names of people, places, brands), keep them in their original spelling. Maintain formatting and spacing. Output only the translation, no explanations.";
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -10,6 +16,7 @@ const PROVIDER_IDS = ['deepseek', 'openai', 'gemini', 'openai_compat'];
 const ALL_STORAGE_KEYS = [
   'username', 'userId', 'email',
   'selectedProvider', 'customPrompt',
+  'defaultTargetLanguage', 'useModalCustomPrompt', 'modalCustomPrompt',
   'apiKey_deepseek', 'apiKey_openai', 'apiKey_gemini', 'apiKey_openai_compat',
   'baseUrl_openai_compat',
   'aiModel_deepseek', 'aiModel_openai', 'aiModel_gemini', 'aiModel_openai_compat',
@@ -40,6 +47,54 @@ function showPromptStatus(message, isError = false) {
 // ---------------------------------------------------------------------------
 function generateUUID() {
   return crypto.randomUUID();
+}
+
+// ---------------------------------------------------------------------------
+// Modal settings UI helpers
+// ---------------------------------------------------------------------------
+function toggleModalPromptField() {
+  const checkbox = document.getElementById('useModalCustomPrompt');
+  const modalPromptField = document.getElementById('modalPromptField');
+  
+  if (checkbox && modalPromptField) {
+    modalPromptField.style.display = checkbox.checked ? '' : 'none';
+  }
+}
+
+/ Update the updateModalPromptPreview function to include Thai
+function updateModalPromptPreview() {
+  const useCustom = document.getElementById('useModalCustomPrompt')?.checked || false;
+  const customPrompt = document.getElementById('modalCustomPrompt')?.value || '';
+  const defaultLang = document.getElementById('defaultTargetLanguage')?.value || 'th';
+  
+  const previewDiv = document.getElementById('modalPromptPreview');
+  if (!previewDiv) return;
+  
+  // Complete language mapping including Thai
+  const languageNames = {
+    'th': 'Thai',
+    'en': 'English', 
+    'es': 'Spanish',
+    'fr': 'French',
+    'de': 'German',
+    'it': 'Italian',
+    'pt': 'Portuguese',
+    'ru': 'Russian',
+    'zh': 'Chinese (Simplified)',
+    'ja': 'Japanese',
+    'ko': 'Korean',
+    'ar': 'Arabic',
+    'hi': 'Hindi'
+  };
+  const targetLangName = languageNames[defaultLang] || defaultLang;
+  
+  if (useCustom && customPrompt) {
+    let preview = customPrompt.replace(/{targetLanguage}/g, targetLangName);
+    previewDiv.innerHTML = `<strong>Using custom prompt:</strong><br><span style="color: #e0e0e0;">${escapeHtml(preview)}</span>`;
+  } else {
+    const defaultPrompt = DEFAULT_MODAL_CUSTOM_PROMPT.replace(/{targetLanguage}/g, targetLangName);
+    previewDiv.innerHTML = `<strong>Using default prompt:</strong><br><span style="color: #e0e0e0;">${escapeHtml(defaultPrompt)}</span>`;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -127,6 +182,53 @@ async function loadSettings() {
   const baseUrlEl = document.getElementById('baseUrl_openai_compat');
   if (baseUrlEl) baseUrlEl.value = result['baseUrl_openai_compat'] || '';
 
+  // --- Modal Translation Settings ---
+  const defaultTargetLanguage = document.getElementById('defaultTargetLanguage');
+  if (defaultTargetLanguage) {
+    defaultTargetLanguage.value = result.defaultTargetLanguage || DEFAULT_TARGET_LANGUAGE;
+  }
+  
+  const useModalCustomPrompt = document.getElementById('useModalCustomPrompt');
+  if (useModalCustomPrompt) {
+    useModalCustomPrompt.checked = result.useModalCustomPrompt !== undefined ? result.useModalCustomPrompt : DEFAULT_USE_MODAL_CUSTOM_PROMPT;
+  }
+  
+  const modalCustomPrompt = document.getElementById('modalCustomPrompt');
+  if (modalCustomPrompt) {
+    modalCustomPrompt.value = result.modalCustomPrompt || DEFAULT_MODAL_CUSTOM_PROMPT;
+  }
+  
+  // Toggle modal prompt field visibility based on checkbox
+  toggleModalPromptField();
+  updateModalPromptPreview();
+  
+  // Add event listeners for modal settings
+  if (defaultTargetLanguage) {
+    defaultTargetLanguage.addEventListener('change', () => {
+      saveModalSetting('defaultTargetLanguage', defaultTargetLanguage.value);
+      updateModalPromptPreview();
+    });
+  }
+  
+  if (useModalCustomPrompt) {
+    useModalCustomPrompt.addEventListener('change', () => {
+      saveModalSetting('useModalCustomPrompt', useModalCustomPrompt.checked);
+      toggleModalPromptField();
+      updateModalPromptPreview();
+    });
+  }
+  
+  if (modalCustomPrompt) {
+    modalCustomPrompt.addEventListener('input', () => {
+      // Debounce save
+      clearTimeout(window.modalPromptTimeout);
+      window.modalPromptTimeout = setTimeout(() => {
+        saveModalSetting('modalCustomPrompt', modalCustomPrompt.value);
+        updateModalPromptPreview();
+      }, 500);
+    });
+  }
+
   // --- Provider selector ---
   const providerId = result.selectedProvider || 'deepseek';
   const providerSelect = document.getElementById('providerSelect');
@@ -138,6 +240,17 @@ async function loadSettings() {
 
   // --- Load saved model then try to populate model list ---
   await loadModelsForProvider(providerId, result, false);
+}
+
+// Helper to save modal settings
+async function saveModalSetting(key, value) {
+  try {
+    await chrome.storage.local.set({ [key]: value });
+    showStatus(`${key} saved!`, false);
+  } catch (err) {
+    console.error(`[JATTUMNN] Save error for ${key}:`, err);
+    showStatus(`Failed to save ${key}`, true);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -199,7 +312,6 @@ async function fetchModels(providerId, apiKey, baseUrl, savedModel = '', showSta
     const rawModels = providerId === 'gemini' ? (data.models || []) : (data.data || []);
 
     // Apply provider-specific filter from options.js registry
-    // We import the registry at the bottom to avoid circular deps in settings context
     const filtered = filterModelsForProvider(providerId, rawModels);
 
     if (filtered.length === 0) {
@@ -236,8 +348,7 @@ async function fetchModels(providerId, apiKey, baseUrl, savedModel = '', showSta
   }
 }
 
-// Standalone filter logic mirroring options.js PROVIDERS — keeps settings.js
-// self-contained without importing ES modules (settings.html uses a plain <script>).
+// Standalone filter logic mirroring options.js PROVIDERS
 function filterModelsForProvider(providerId, models) {
   switch (providerId) {
     case 'deepseek':
@@ -342,7 +453,7 @@ function makeFieldReadOnly(fieldId) {
 // ---------------------------------------------------------------------------
 async function clearUserData() {
   const confirmed = confirm(
-    '🗑️ Clear all user data?\n\nThis will reset your username, email, all API keys, base URL, and translation prompt.'
+    '🗑️ Clear all user data?\n\nThis will reset your username, email, all API keys, base URL, translation prompts, and modal settings.'
   );
   if (!confirmed) return;
 
@@ -350,6 +461,9 @@ async function clearUserData() {
     username: '',
     email: '',
     customPrompt: DEFAULT_ENG_TRANSLATION_PROMPT,
+    defaultTargetLanguage: DEFAULT_TARGET_LANGUAGE,
+    useModalCustomPrompt: DEFAULT_USE_MODAL_CUSTOM_PROMPT,
+    modalCustomPrompt: DEFAULT_MODAL_CUSTOM_PROMPT,
   };
   PROVIDER_IDS.forEach(id => {
     resetValues[`apiKey_${id}`] = '';
@@ -363,6 +477,19 @@ async function clearUserData() {
     document.getElementById('username').value = '';
     document.getElementById('email').value    = '';
     document.getElementById('customPrompt').value = DEFAULT_ENG_TRANSLATION_PROMPT;
+    
+    // Reset modal settings UI
+    const defaultTargetLanguage = document.getElementById('defaultTargetLanguage');
+    if (defaultTargetLanguage) defaultTargetLanguage.value = DEFAULT_TARGET_LANGUAGE;
+    
+    const useModalCustomPrompt = document.getElementById('useModalCustomPrompt');
+    if (useModalCustomPrompt) useModalCustomPrompt.checked = DEFAULT_USE_MODAL_CUSTOM_PROMPT;
+    
+    const modalCustomPrompt = document.getElementById('modalCustomPrompt');
+    if (modalCustomPrompt) modalCustomPrompt.value = DEFAULT_MODAL_CUSTOM_PROMPT;
+    
+    toggleModalPromptField();
+    updateModalPromptPreview();
 
     PROVIDER_IDS.forEach(id => {
       const el = document.getElementById(`apiKey_${id}`);
@@ -378,7 +505,7 @@ async function clearUserData() {
     applyProviderUI(providerId);
 
     showStatus('User data cleared!', false);
-    showPromptStatus('Prompt reset to default', false);
+    showPromptStatus('Prompts reset to default', false);
   } catch (err) {
     console.error('[JATTUMNN] Clear data error:', err);
     showStatus('Failed to clear user data', true);
@@ -395,7 +522,6 @@ async function updateCacheStats() {
     let totalBytes = 0;
     for (const key of transKeys) {
       const entry = all[key];
-      // entries are now objects {originalText, translatedText}
       const entryStr = typeof entry === 'string' ? entry : JSON.stringify(entry);
       totalBytes += key.length + entryStr.length;
     }
@@ -435,9 +561,9 @@ async function savePrompt() {
   if (!val) { showPromptStatus('Prompt cannot be empty', true); return; }
   try {
     await chrome.storage.local.set({ customPrompt: val });
-    showPromptStatus('Prompt saved!', false);
+    showPromptStatus('Hover prompt saved!', false);
   } catch {
-    showPromptStatus('Failed to save prompt', true);
+    showPromptStatus('Failed to save hover prompt', true);
   }
 }
 
@@ -449,6 +575,11 @@ function switchTab(tabId) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById(`${tabId}-tab`).classList.add('active');
   document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
+  
+  // Update modal prompt preview when switching to prompt tab
+  if (tabId === 'prompt') {
+    updateModalPromptPreview();
+  }
 }
 
 // ---------------------------------------------------------------------------

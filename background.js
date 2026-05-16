@@ -1,6 +1,7 @@
 import { logError, clearErrorLog, getErrorLog } from "./modules/errorLogger.js";
 import { handleHoverTranslation } from "./modules/translationHandler.js";
 import { clearTranslationCache } from "./modules/translationCache.js";
+import { translateInputText } from "./modules/translationHandler.js";
 
 // ----- Command Listeners for Keyboard Shortcuts -----
 chrome.commands.onCommand.addListener(async (command) => {
@@ -70,8 +71,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 // ----- Handler for input text translation request from modal -----
 async function handleInputTranslationRequest(message, sendResponse) {
   try {
-    const { translateInputText } = await import("./modules/translationHandler.js");
-
     const translated = await translateInputText(
       message.text,
       message.targetLanguage,
