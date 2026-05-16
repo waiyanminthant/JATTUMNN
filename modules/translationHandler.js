@@ -6,26 +6,7 @@ import { callTranslationAPI, handleAPIError } from "./apiHandler.js";
 
 const translationCache = new TranslationCache();
 
-// Build context object that uniquely defines the translation configuration
-const context = {
-  provider: providerId,
-  model: model,
-  promptHash: simpleHash(
-    settings.customPrompt?.trim() || DEFAULT_ENG_TRANSLATION_PROMPT,
-  ),
-};
-
 export async function translateText(text, timeoutMs = 5000) {
-  // Cache check first
-  const cached = await translationCache.get(text, context);
-  if (cached) {
-    console.log(
-      "[JATTUMNN] Using cached translation for:",
-      text.substring(0, 50),
-    );
-    return cached;
-  }
-
   // Load all settings in one call
   const settings = await chrome.storage.local.get([
     "selectedProvider",
@@ -44,10 +25,24 @@ export async function translateText(text, timeoutMs = 5000) {
   // Resolve provider — default to deepseek for backwards compat
   const providerId = settings.selectedProvider || "deepseek";
   const provider = getProvider(providerId);
-
   const apiKey = settings[`apiKey_${providerId}`] || "";
   const model = settings[`aiModel_${providerId}`] || "";
   const customBaseUrl = settings["baseUrl_openai_compat"] || "";
+  const systemPrompt = settings.customPrompt?.trim() || DEFAULT_ENG_TRANSLATION_PROMPT;
+
+  // Build context object that uniquely defines the translation configuration
+  const context = {
+    provider: providerId,
+    model: model,
+    promptHash: simpleHash(systemPrompt),
+  };
+
+  // Cache check first
+  const cached = await translationCache.get(text, context);
+  if (cached) {
+    console.log("[JATTUMNN] Using cached translation for:", text.substring(0, 50));
+    return cached;
+  }
 
   // Validate
   if (provider.id !== "openai_compat" && !apiKey)
@@ -62,9 +57,6 @@ export async function translateText(text, timeoutMs = 5000) {
     throw new Error(
       `AI model not selected for ${provider.name}. Please configure in settings.`,
     );
-
-  const systemPrompt =
-    settings.customPrompt?.trim() || DEFAULT_ENG_TRANSLATION_PROMPT;
 
   try {
     const response = await callTranslationAPI(
@@ -85,8 +77,7 @@ export async function translateText(text, timeoutMs = 5000) {
     const translated = provider.parseResponse(data);
     if (!translated)
       throw new Error(
-        "No translation returned from API. Returned data: " +
-          JSON.stringify(data),
+        "No translation returned from API. Returned data: " + JSON.stringify(data),
       );
 
     await translationCache.set(text, translated, context);
@@ -97,10 +88,7 @@ export async function translateText(text, timeoutMs = 5000) {
       const timeoutError = new Error(
         `Translation timed out after ${timeoutMs / 1000} seconds. Please try again.`,
       );
-      await logError(timeoutError, {
-        provider: providerId,
-        timeout: timeoutMs,
-      });
+      await logError(timeoutError, { provider: providerId, timeout: timeoutMs });
       throw timeoutError;
     }
     await logError(error, { provider: providerId });
