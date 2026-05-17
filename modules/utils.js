@@ -85,17 +85,16 @@ export function showError(container, errorMessage) {
   `;
   container.appendChild(errorSpan);
   
-  // Auto-hide after 5 seconds
   setTimeout(() => {
     if (errorSpan.parentNode) errorSpan.remove();
-  }, 5000);
+  }, 5000); // hide after 5 seconds
 }
 
 export function revertTranslation(container, textNodes) {
   if (!container || !textNodes) return false;
   let restored = false;
   for (const node of textNodes) {
-    if (node._jattumnn_original) {
+    if (node._jattumnn_original !== undefined) {
       node.nodeValue = node._jattumnn_original;
       restored = true;
     }
@@ -120,6 +119,10 @@ export function applyTranslation(container, textNodes, translatedSegments) {
   }
   container._jattumnn_translated = true;
   container._jattumnn_textNodes = textNodes;
+}
+
+export function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // Helper – quick hash for the prompt (avoid huge keys)

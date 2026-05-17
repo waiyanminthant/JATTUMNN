@@ -1,13 +1,37 @@
 export const JATTUMNN_SEPARATOR = '__SEP__';
 export const MAX_LOG_ENTRIES = 100;
-export const DEFAULT_ENG_TRANSLATION_PROMPT = "Translate to English. For proper nouns translate to their original English spelling. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
+export const DEFAULT_ENG_TRANSLATION_PROMPT = "Translate to English. For proper nouns translate to their original English spelling. Keep formatting and spacing. Output only the translation, no explanations.";
 
-// ---------------------------------------------------------------------------
-// Provider Registry
-// Each entry fully describes how to talk to one AI backend.
-// To add a new provider: append one object here — nothing else needs changing
-// in apiHandler.js or translationHandler.js.
-// ---------------------------------------------------------------------------
+export const LANGUAGE_NAMES = {
+  th: "Thai",
+  en: "English",
+  es: "Spanish",
+  fr: "French",
+  de: "German",
+  it: "Italian",
+  pt: "Portuguese",
+  ru: "Russian",
+  zh: "Chinese (Simplified)",
+  ja: "Japanese",
+  ko: "Korean",
+  ar: "Arabic",
+  hi: "Hindi",
+};
+
+export const PROVIDER_STORAGE_KEYS = [
+  "selectedProvider",
+  "apiKey_deepseek",
+  "apiKey_openai",
+  "apiKey_gemini",
+  "apiKey_openai_compat",
+  "baseUrl_openai_compat",
+  "aiModel_deepseek",
+  "aiModel_openai",
+  "aiModel_gemini",
+  "aiModel_openai_compat",
+  "customPrompt",
+];
+
 export const PROVIDERS = [
   {
     id: 'deepseek',
@@ -146,7 +170,6 @@ export const PROVIDERS = [
   },
 ];
 
-// Convenience lookup: getProvider('openai') -> provider object, falls back to deepseek
 export function getProvider(id) {
   return PROVIDERS.find(p => p.id === id) ?? PROVIDERS[0];
 }

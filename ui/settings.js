@@ -1,20 +1,17 @@
-// settings.js – JATTUMNN (multi-provider edition) with modal settings
-
 const DEFAULT_ENG_TRANSLATION_PROMPT =
-  "Translate to English. For proper nouns (names of people, places, brands), reverse-transliterate them back to their original English spelling. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations.";
+  "Translate to English. For proper nouns (names of people, places, brands), reverse-transliterate them back to their original English spelling. Keep formatting and spacing. Output only the translation, no explanations.";
 
-// Default modal settings
 const DEFAULT_TARGET_LANGUAGE = "th";
 const DEFAULT_USE_MODAL_CUSTOM_PROMPT = false;
 const DEFAULT_MODAL_CUSTOM_PROMPT =
   "Translate to {targetLanguage}. For proper nouns (names of people, places, brands), keep them in their original spelling. Maintain formatting and spacing. Output only the translation, no explanations.";
 
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
 const PROVIDER_IDS = ["deepseek", "openai", "gemini", "openai_compat"];
+const STATUS_TIMEOUT = 3000;
+const PROMPT_STATUS_TIMEOUT = 2500;
+const DEBOUNCE_DELAY = 500;
+const LANGUAGE_PROMPT_STATUS_TIMEOUT = 2000;
 
-// All storage keys we ever read or write
 const ALL_STORAGE_KEYS = [
   "username",
   "userId",
@@ -37,7 +34,6 @@ const ALL_STORAGE_KEYS = [
   "apiKey",
 ];
 
-// Add these constants at the top
 const LANGUAGE_NAMES = {
   th: "Thai",
   en: "English",
@@ -70,16 +66,13 @@ const DEFAULT_LANGUAGE_PROMPTS = {
   hi: "Translate to Hindi using natural, respectful language.",
 };
 
-// ---------------------------------------------------------------------------
-// Status helpers
-// ---------------------------------------------------------------------------
 function showStatus(message, isError = false) {
   const el = document.getElementById("statusMsg");
   el.textContent = message;
   el.style.color = isError ? "#f87171" : "#3b82f6";
   setTimeout(() => {
     el.textContent = "";
-  }, 3000);
+  }, STATUS_TIMEOUT);
 }
 
 function showPromptStatus(message, isError = false) {
@@ -89,20 +82,13 @@ function showPromptStatus(message, isError = false) {
   el.style.color = isError ? "#f87171" : "#3b82f6";
   setTimeout(() => {
     el.textContent = "";
-  }, 2500);
+  }, PROMPT_STATUS_TIMEOUT);
 }
 
-// ---------------------------------------------------------------------------
-// UUID
-// ---------------------------------------------------------------------------
 function generateUUID() {
   return crypto.randomUUID();
 }
 
-// ---------------------------------------------------------------------------
-// Modal settings UI helpers
-// ---------------------------------------------------------------------------
-// Fix toggleModalPromptField function
 function toggleModalPromptField() {
   const checkbox = document.getElementById("useModalCustomPrompt");
   const globalPromptField = document.getElementById("globalPromptField");
@@ -133,8 +119,6 @@ function toggleModalPromptField() {
   }
 }
 
-// Update the updateModalPromptPreview function to include Thai
-// Update modal prompt preview
 function updateModalPromptPreview() {
   const useCustom =
     document.getElementById("useModalCustomPrompt")?.checked || false;
@@ -146,22 +130,7 @@ function updateModalPromptPreview() {
   const previewDiv = document.getElementById("modalPromptPreview");
   if (!previewDiv) return;
 
-  const languageNames = {
-    th: "Thai",
-    en: "English",
-    es: "Spanish",
-    fr: "French",
-    de: "German",
-    it: "Italian",
-    pt: "Portuguese",
-    ru: "Russian",
-    zh: "Chinese (Simplified)",
-    ja: "Japanese",
-    ko: "Korean",
-    ar: "Arabic",
-    hi: "Hindi",
-  };
-  const targetLangName = languageNames[defaultLang] || defaultLang;
+  const targetLangName = LANGUAGE_NAMES[defaultLang] || defaultLang;
 
   if (useCustom && customPrompt) {
     let preview = customPrompt.replace(/{targetLanguage}/g, targetLangName);
@@ -175,10 +144,6 @@ function updateModalPromptPreview() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Provider UI switching
-// Hides / shows the right API key field and base URL field based on selection.
-// ---------------------------------------------------------------------------
 function applyProviderUI(providerId) {
   // Hide all provider-specific key fields
   PROVIDER_IDS.forEach((id) => {
@@ -232,14 +197,10 @@ function updateRefreshBtnState(providerId) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Load all settings (single storage call)
-// ---------------------------------------------------------------------------
 async function loadSettings() {
   const result = await chrome.storage.local.get(ALL_STORAGE_KEYS);
 
-  // --- Migrate legacy single apiKey -> apiKey_deepseek ---
-  if (result.apiKey && !result.apiKey_deepseek) {
+    if (result.apiKey && !result.apiKey_deepseek) {
     await chrome.storage.local.set({ apiKey_deepseek: result.apiKey });
     result.apiKey_deepseek = result.apiKey;
     console.log("[JATTUMNN] Migrated legacy apiKey -> apiKey_deepseek");
@@ -329,7 +290,7 @@ async function loadSettings() {
       window.modalPromptTimeout = setTimeout(() => {
         saveModalSetting("modalCustomPrompt", modalCustomPrompt.value);
         updateModalPromptPreview();
-      }, 500);
+      }, DEBOUNCE_DELAY);
     });
   }
 
@@ -347,7 +308,6 @@ async function loadSettings() {
   await loadModelsForProvider(providerId, result, false);
 }
 
-// Update saveModalSettings function
 async function saveModalSettings() {
   const defaultTargetLanguage =
     document.getElementById("defaultTargetLanguage")?.value ||
@@ -389,77 +349,10 @@ function showModalSettingsStatus(message, isError = false) {
     el.style.color = isError ? "#f87171" : "#3b82f6";
     setTimeout(() => {
       if (el) el.textContent = "";
-    }, 3000);
+    }, STATUS_TIMEOUT);
   }
 }
 
-async function updateCustomPromptsSummary() {
-  const result = await chrome.storage.local.get([
-    "languagePrompts",
-    "useModalCustomPrompt",
-  ]);
-  const languagePrompts = result.languagePrompts || {};
-  const useGlobalPrompt = result.useModalCustomPrompt || false;
-
-  const summaryDiv = document.getElementById("customPromptsList");
-  if (!summaryDiv) return;
-
-  const languageNames = {
-    th: "Thai",
-    en: "English",
-    es: "Spanish",
-    fr: "French",
-    de: "German",
-    it: "Italian",
-    pt: "Portuguese",
-    ru: "Russian",
-    zh: "Chinese (Simplified)",
-    ja: "Japanese",
-    ko: "Korean",
-    ar: "Arabic",
-    hi: "Hindi",
-  };
-
-  const languagesWithPrompts = Object.keys(languagePrompts);
-
-  if (useGlobalPrompt) {
-    summaryDiv.innerHTML =
-      '<span style="color: #888;">Using global custom prompt (language-specific prompts disabled)</span>';
-    return;
-  }
-
-  if (languagesWithPrompts.length === 0) {
-    summaryDiv.innerHTML =
-      '<span style="color: #888;">No custom prompts set. Using default prompts.</span>';
-    return;
-  }
-
-  summaryDiv.innerHTML = languagesWithPrompts
-    .map(
-      (lang) =>
-        `<span class="prompt-badge" data-lang="${lang}">${languageNames[lang] || lang}</span>`,
-    )
-    .join("");
-
-  // Add click handlers to badges
-  document.querySelectorAll(".prompt-badge").forEach((badge) => {
-    badge.addEventListener("click", () => {
-      const lang = badge.getAttribute("data-lang");
-      const languageSelector = document.getElementById(
-        "languagePromptSelector",
-      );
-      if (languageSelector && lang) {
-        languageSelector.value = lang;
-        languageSelector.dispatchEvent(new Event("change"));
-        document
-          .getElementById("languagePromptField")
-          ?.scrollIntoView({ behavior: "smooth" });
-      }
-    });
-  });
-}
-
-// Save modal setting (individual)
 async function saveModalSetting(key, value) {
   try {
     await chrome.storage.local.set({ [key]: value });
@@ -470,9 +363,6 @@ async function saveModalSetting(key, value) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Model loading
-// ---------------------------------------------------------------------------
 async function loadModelsForProvider(
   providerId,
   storedSettings,
@@ -580,7 +470,6 @@ async function fetchModels(
   }
 }
 
-// Standalone filter logic mirroring options.js PROVIDERS
 function filterModelsForProvider(providerId, models) {
   switch (providerId) {
     case "deepseek":
@@ -627,9 +516,6 @@ function showManualModelInput(savedModel = "") {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Save AI model on dropdown change
-// ---------------------------------------------------------------------------
 async function saveAiModel() {
   const providerId = document.getElementById("providerSelect").value;
   const select = document.getElementById("aiModel");
@@ -639,9 +525,6 @@ async function saveAiModel() {
   showStatus("Model saved", false);
 }
 
-// ---------------------------------------------------------------------------
-// Generic editable field setup
-// ---------------------------------------------------------------------------
 function setupField(fieldId) {
   const input = document.getElementById(fieldId);
   const btn = document.querySelector(`.edit-btn[data-field="${fieldId}"]`);
@@ -698,9 +581,6 @@ function makeFieldReadOnly(fieldId) {
   if (btn) btn.textContent = "✏️ Edit";
 }
 
-// ---------------------------------------------------------------------------
-// Clear user data
-// ---------------------------------------------------------------------------
 async function clearUserData() {
   const confirmed = confirm(
     "🗑️ Clear all user data?\n\nThis will reset your username, email, all API keys, base URL, translation prompts, and modal settings.",
@@ -774,9 +654,6 @@ async function clearUserData() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Translation cache stats
-// ---------------------------------------------------------------------------
 async function updateCacheStats() {
   try {
     const all = await chrome.storage.local.get(null);
@@ -819,9 +696,6 @@ async function clearTranslationCache() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Prompt tab
-// ---------------------------------------------------------------------------
 async function savePrompt() {
   const val = document.getElementById("customPrompt").value.trim();
   if (!val) {
@@ -836,9 +710,6 @@ async function savePrompt() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Tab switching
-// ---------------------------------------------------------------------------
 function switchTab(tabId) {
   document
     .querySelectorAll(".tab-content")
@@ -857,9 +728,6 @@ function switchTab(tabId) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Error logs
-// ---------------------------------------------------------------------------
 async function loadErrorLogs() {
   const container = document.getElementById("logContainer");
   if (!container) return;
@@ -933,9 +801,6 @@ async function clearErrorLogs() {
   }
 }
 
-// ---------------------------------------------------------------------------
-// DOMContentLoaded — wire everything up
-// ---------------------------------------------------------------------------
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("[JATTUMNN] Settings page loaded");
 
@@ -1028,9 +893,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       updateModalPromptPreview();
     });
   }
-  // =============================================
-  // NEW: Language-specific prompt event listeners
-  // =============================================
+
 
   // Language selector dropdown
   const languagePromptSelector = document.getElementById(
@@ -1081,7 +944,6 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (clearLogsBtn) clearLogsBtn.addEventListener("click", clearErrorLogs);
 });
 
-// New function to update custom prompts summary
 async function updateCustomPromptsSummary() {
   const result = await chrome.storage.local.get([
     "languagePrompts",
@@ -1133,7 +995,6 @@ async function updateCustomPromptsSummary() {
   });
 }
 
-// Load language-specific prompt
 async function loadLanguagePrompt(language) {
   const result = await chrome.storage.local.get([
     "languagePrompts",
@@ -1145,24 +1006,8 @@ async function loadLanguagePrompt(language) {
   const textarea = document.getElementById("languageCustomPrompt");
   const selectedLanguageSpan = document.getElementById("selectedLanguageName");
 
-  const languageNames = {
-    th: "Thai",
-    en: "English",
-    es: "Spanish",
-    fr: "French",
-    de: "German",
-    it: "Italian",
-    pt: "Portuguese",
-    ru: "Russian",
-    zh: "Chinese (Simplified)",
-    ja: "Japanese",
-    ko: "Korean",
-    ar: "Arabic",
-    hi: "Hindi",
-  };
-
   if (selectedLanguageSpan) {
-    selectedLanguageSpan.textContent = languageNames[language] || language;
+    selectedLanguageSpan.textContent = LANGUAGE_NAMES[language] || language;
   }
 
   if (textarea) {
@@ -1195,13 +1040,12 @@ async function loadLanguagePrompt(language) {
         };
         textarea.value =
           defaultPrompts[language] ||
-          `Translate to ${languageNames[language] || language}. Keep formatting and spacing. Output only the translation.`;
+          `Translate to ${LANGUAGE_NAMES[language] || language}. Keep formatting and spacing. Output only the translation.`;
       }
     }
   }
 }
 
-// Save language-specific prompt
 async function saveLanguagePrompt() {
   const language = document.getElementById("languagePromptSelector")?.value;
   const prompt = document.getElementById("languageCustomPrompt")?.value;
@@ -1227,13 +1071,12 @@ async function saveLanguagePrompt() {
     statusEl.style.color = "#4ade80";
     setTimeout(() => {
       statusEl.textContent = "";
-    }, 2000);
+    }, LANGUAGE_PROMPT_STATUS_TIMEOUT);
   }
 
   await updateCustomPromptsSummary();
 }
 
-// Reset language prompt to default
 async function resetLanguagePrompt() {
   const language = document.getElementById("languagePromptSelector")?.value;
   if (!language) return;
@@ -1250,7 +1093,6 @@ async function resetLanguagePrompt() {
   await saveLanguagePrompt();
 }
 
-// Add to your background.js or settings.js initialization
 async function initializeDefaults() {
   const existing = await chrome.storage.local.get(["languagePrompts"]);
   if (!existing.languagePrompts) {

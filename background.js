@@ -1,9 +1,24 @@
 import { logError, clearErrorLog, getErrorLog } from "./modules/errorLogger.js";
-import { handleHoverTranslation } from "./modules/translationHandler.js";
+import { handleHoverTranslation, translateInputText } from "./modules/translationHandler.js";
 import { clearTranslationCache } from "./modules/translationCache.js";
-import { translateInputText } from "./modules/translationHandler.js";
 
-// ----- Command Listeners for Keyboard Shortcuts -----
+const ACTIONS = {
+  CLEAR_CACHE: "clearTranslationCache",
+  LOG_ERROR: "logError",
+  GET_ERROR_LOG: "getErrorLog",
+  CLEAR_ERROR_LOG: "clearErrorLog",
+  TRANSLATE_INPUT: "translateInputText",
+};
+
+const INPUT_TRANSLATION_TIMEOUT = 5000;
+
+function respondAsync(sendResponse, fn) {
+  fn()
+    .then((result) => sendResponse(result ?? { success: true }))
+    .catch((error) => sendResponse({ success: false, error: error.message }));
+  return true;
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
   switch (command) {
     case "translate-text":
@@ -17,7 +32,6 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
-// ----- Handler for input modal translation -----
 async function handleInputTranslation() {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -31,63 +45,35 @@ async function handleInputTranslation() {
   }
 }
 
-// ----- Message Listener for Cache Management, Error Logging, and Input Translation -----
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.action) {
-    case "clearTranslationCache":
-      clearTranslationCache()
-        .then(() => sendResponse({ success: true }))
-        .catch((err) => sendResponse({ success: false, error: err.message }));
-      return true;
-    case "logError":
-      logError(new Error(message.error), {
-        source: "content",
-        context: message.context,
-      })
-        .then(() => sendResponse({ success: true }))
-        .catch(() => sendResponse({ success: false }));
-      return true;
-    case "getErrorLog":
-      getErrorLog()
-        .then((log) => sendResponse({ log }))
-        .catch((e) => sendResponse({ error: e.message }));
-      return true;
-    case "clearErrorLog":
-      clearErrorLog()
-        .then(() => sendResponse({ success: true }))
-        .catch((e) => sendResponse({ error: e.message }));
-      return true;
-    case "translateInputText":
-      handleInputTranslationRequest(message, sendResponse);
-      return true;
-    default:
-      console.warn(
-        "Background: unknown message action received:",
-        message.action,
+    case ACTIONS.CLEAR_CACHE:
+      return respondAsync(sendResponse, () => clearTranslationCache());
+    case ACTIONS.LOG_ERROR:
+      return respondAsync(sendResponse, () =>
+        logError(new Error(message.error), { source: "content", context: message.context })
       );
+    case ACTIONS.GET_ERROR_LOG:
+      return respondAsync(sendResponse, async () => {
+        const log = await getErrorLog();
+        return { log, success: true };
+      });
+    case ACTIONS.CLEAR_ERROR_LOG:
+      return respondAsync(sendResponse, () => clearErrorLog());
+    case ACTIONS.TRANSLATE_INPUT:
+      return handleInputTranslationRequest(message, sendResponse);
+    default:
+      console.warn("Background: unknown message action received:", message.action);
   }
 });
 
-// ----- Handler for input text translation request from modal -----
 async function handleInputTranslationRequest(message, sendResponse) {
   try {
     const translated = await translateInputText(
       message.text,
       message.targetLanguage,
       message.customPrompt,
-      {
-        selectedProvider: message.selectedProvider,
-        apiKey_deepseek: message.apiKey_deepseek,
-        apiKey_openai: message.apiKey_openai,
-        apiKey_gemini: message.apiKey_gemini,
-        apiKey_openai_compat: message.apiKey_openai_compat,
-        baseUrl_openai_compat: message.baseUrl_openai_compat,
-        aiModel_deepseek: message.aiModel_deepseek,
-        aiModel_openai: message.aiModel_openai,
-        aiModel_gemini: message.aiModel_gemini,
-        aiModel_openai_compat: message.aiModel_openai_compat,
-      },
-      5000 // timeout
+      INPUT_TRANSLATION_TIMEOUT
     );
 
     sendResponse({ translatedText: translated, error: null });
