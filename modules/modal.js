@@ -72,7 +72,7 @@ export async function showTranslationModal() {
           id="jattumnnInputText" 
           class="jattumnn-text-input" 
           rows="4" 
-          placeholder="Enter text to translate here... (Enter to translate | Shift+Enter for new line)"
+          placeholder="Enter text to translate here... (@th, @ja, @fr to override language | Enter to translate | Shift+Enter for new line)"
         ></textarea>
       </div>
       
@@ -170,6 +170,23 @@ function setupModalEventListeners(settings) {
         }
       }
     });
+
+    textarea.addEventListener("input", () => {
+      const text = textarea.value;
+      const match = text.match(/^@(\w+)/);
+
+      if (match) {
+        const code = match[1].toLowerCase();
+        if (LANGUAGE_NAMES[code]) {
+          targetLangSelect.value = code;
+          return;
+        }
+      }
+
+      if (!text.startsWith("@")) {
+        targetLangSelect.value = settings.defaultTargetLanguage || "th";
+      }
+    });
   }
 }
 
@@ -186,13 +203,28 @@ async function handleModalTranslation(inputText, targetLanguage, settings) {
 
   resultArea.style.display = "none";
 
+  const langMatch = inputText.match(/^@(\w+)\s+(.*)/s);
+  let effectiveLang = targetLanguage;
+  let effectiveText = inputText;
+
+  if (langMatch) {
+    const code = langMatch[1].toLowerCase();
+    if (LANGUAGE_NAMES[code]) {
+      effectiveLang = code;
+      effectiveText = langMatch[2];
+    } else {
+      showModalError(`⚠️ Unsupported language code "${code}". Translating to default language.`);
+      effectiveText = langMatch[2];
+    }
+  }
+
   try {
-    const customPrompt = await getModalPrompt(targetLanguage, settings);
+    const customPrompt = await getModalPrompt(effectiveLang, settings);
 
     const response = await chrome.runtime.sendMessage({
       action: "translateInputText",
-      text: inputText,
-      targetLanguage,
+      text: effectiveText,
+      targetLanguage: effectiveLang,
       customPrompt,
     });
 
