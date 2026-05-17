@@ -169,9 +169,33 @@
   color: #aaa;
   font-size: 0.85rem;
   font-weight: 500;
-  margin-bottom: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.jattumnn-result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.jattumnn-copy-btn {
+  background: #2a2a2a;
+  color: #ccc;
+  border: 1px solid #444;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.75rem;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.jattumnn-copy-btn:hover {
+  background: #3a3a3a;
+  color: white;
 }
 
 .jattumnn-result-text {

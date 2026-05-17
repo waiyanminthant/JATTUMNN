@@ -3,6 +3,7 @@ const DEFAULT_ENG_TRANSLATION_PROMPT =
 
 const DEFAULT_TARGET_LANGUAGE = "th";
 const DEFAULT_USE_MODAL_CUSTOM_PROMPT = false;
+const DEFAULT_AUTO_COPY_RESULT = false;
 const DEFAULT_MODAL_CUSTOM_PROMPT =
   "Translate to {targetLanguage}. For proper nouns (names of people, places, brands), keep them in their original spelling. Maintain formatting and spacing. Output only the translation, no explanations.";
 
@@ -21,7 +22,8 @@ const ALL_STORAGE_KEYS = [
   "defaultTargetLanguage",
   "useModalCustomPrompt",
   "modalCustomPrompt",
-  "languagePrompts", // New key for language-specific prompts
+  "autoCopyResult",
+  "languagePrompts",
   "apiKey_deepseek",
   "apiKey_openai",
   "apiKey_gemini",
@@ -294,6 +296,17 @@ async function loadSettings() {
     });
   }
 
+  const autoCopyResult = document.getElementById("autoCopyResult");
+  if (autoCopyResult) {
+    autoCopyResult.checked =
+      result.autoCopyResult !== undefined
+        ? result.autoCopyResult
+        : DEFAULT_AUTO_COPY_RESULT;
+    autoCopyResult.addEventListener("change", () => {
+      saveModalSetting("autoCopyResult", autoCopyResult.checked);
+    });
+  }
+
   // --- Provider selector ---
   const providerId = result.selectedProvider || "deepseek";
   const providerSelect = document.getElementById("providerSelect");
@@ -317,12 +330,15 @@ async function saveModalSettings() {
   const modalCustomPrompt =
     document.getElementById("modalCustomPrompt")?.value ||
     DEFAULT_MODAL_CUSTOM_PROMPT;
+  const autoCopyResult =
+    document.getElementById("autoCopyResult")?.checked || false;
 
   try {
     await chrome.storage.local.set({
       defaultTargetLanguage,
       useModalCustomPrompt,
       modalCustomPrompt,
+      autoCopyResult,
     });
 
     // Update UI based on toggle state
@@ -594,6 +610,7 @@ async function clearUserData() {
     defaultTargetLanguage: DEFAULT_TARGET_LANGUAGE,
     useModalCustomPrompt: DEFAULT_USE_MODAL_CUSTOM_PROMPT,
     modalCustomPrompt: DEFAULT_MODAL_CUSTOM_PROMPT,
+    autoCopyResult: DEFAULT_AUTO_COPY_RESULT,
   };
   PROVIDER_IDS.forEach((id) => {
     resetValues[`apiKey_${id}`] = "";
@@ -625,6 +642,10 @@ async function clearUserData() {
     const modalCustomPrompt = document.getElementById("modalCustomPrompt");
     if (modalCustomPrompt)
       modalCustomPrompt.value = DEFAULT_MODAL_CUSTOM_PROMPT;
+
+    const autoCopyResult = document.getElementById("autoCopyResult");
+    if (autoCopyResult)
+      autoCopyResult.checked = DEFAULT_AUTO_COPY_RESULT;
 
     toggleModalPromptField();
     updateModalPromptPreview();

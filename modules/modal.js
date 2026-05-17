@@ -11,6 +11,7 @@ const MODAL_STORAGE_KEYS = [
   "useModalCustomPrompt",
   "modalCustomPrompt",
   "languagePrompts",
+  "autoCopyResult",
 ];
 
 async function loadModalCSS() {
@@ -99,7 +100,10 @@ export async function showTranslationModal() {
       </button>
       
       <div id="jattumnnResultArea" class="jattumnn-result-area" style="display: none;">
-        <div class="jattumnn-result-label">✨ Translation Result</div>
+        <div class="jattumnn-result-header">
+          <div class="jattumnn-result-label">✨ Translation Result</div>
+          <button id="jattumnnCopyBtn" class="jattumnn-copy-btn" style="display: none;">📋 Copy</button>
+        </div>
         <div id="jattumnnResultText" class="jattumnn-result-text"></div>
       </div>
     `;
@@ -199,6 +203,21 @@ async function handleModalTranslation(inputText, targetLanguage, settings) {
     resultText.textContent = response.translatedText;
     resultArea.style.display = "block";
     resultArea.scrollIntoView({ behavior: "smooth", block: "nearest" });
+
+    if (settings.autoCopyResult) {
+      navigator.clipboard.writeText(response.translatedText);
+    }
+
+    const copyBtn = modalOverlay.querySelector("#jattumnnCopyBtn");
+    if (copyBtn) {
+      copyBtn.style.display = "inline-block";
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(response.translatedText).then(() => {
+          copyBtn.textContent = "✅ Copied!";
+          setTimeout(() => { copyBtn.textContent = "📋 Copy"; }, 2000);
+        });
+      };
+    }
   } catch (error) {
     console.error("[JATTUMNN] Translation error:", error);
     showModalError(error.message || "Translation failed. Please check your settings.");
