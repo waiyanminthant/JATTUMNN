@@ -15,7 +15,7 @@ body {
 }
 
 .settings-container {
-  max-width: 600px;
+  max-width: 50%;
   width: 100%;
   background-color: #1a1a1a;
   border: 1px solid #333;

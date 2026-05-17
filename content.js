@@ -1,3 +1,5 @@
+// content.js - Updated to use modal module
+
 import {
   showSpinner,
   getTextNodes,
@@ -8,6 +10,7 @@ import {
   applyTranslation,
 } from "./modules/utils.js";
 import { JATTUMNN_SEPARATOR } from "./modules/options.js";
+import { showTranslationModal, closeModal, isModalOpen } from "./modules/modal.js";
 
 let hoveredElement = null;
 let activeRequests = new Map();
@@ -21,7 +24,27 @@ document.addEventListener("mouseover", (event) => {
   hoveredElement = target;
 });
 
-// this listener handles messages from the background script to get text for translation and to display translations or errors
+// Listen for keyboard shortcut to open modal
+document.addEventListener("keydown", async (event) => {
+  // Check for Alt+Q
+  if (event.altKey && event.key === 'q') {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    if (!isModalOpen()) {
+      await showTranslationModal();
+    } else {
+      closeModal();
+    }
+  }
+  
+  // Close modal on Escape key
+  if (event.key === 'Escape' && isModalOpen()) {
+    closeModal();
+  }
+});
+
+// Keep existing message listener
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "getTextToTranslate") {
     const container = hoveredElement
@@ -56,20 +79,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const requestId =
       Date.now() + "-" + Math.random().toString(36).substr(2, 6);
     const startTime = performance.now();
-    activeRequests.set(requestId, {
-      element: container,
-      textNodes: textNodes,
-      separator: JATTUMNN_SEPARATOR,
-      startTime: startTime,
-    });
-
-    showSpinner(container);
-
-    console.log(
-      `[JATTUMNN] Translation started for container with ${textNodes.length} text nodes`,
-    );
-
-    setTimeout(() => {
+    
+    const timeoutId = setTimeout(() => {
       if (activeRequests.has(requestId)) {
         const stale = activeRequests.get(requestId);
         hideSpinner(stale.element);
@@ -79,6 +90,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         );
       }
     }, 6000);
+    
+    activeRequests.set(requestId, {
+      element: container,
+      textNodes: textNodes,
+      separator: JATTUMNN_SEPARATOR,
+      startTime: startTime,
+      timeoutId: timeoutId,
+    });
+
+    showSpinner(container);
+
+    console.log(
+      `[JATTUMNN] Translation started for container with ${textNodes.length} text nodes`,
+    );
 
     sendResponse({ text: combinedText, skip: false, requestId });
     return true;
@@ -89,6 +114,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const pending = activeRequests.get(requestId);
 
     if (pending && pending.element) {
+      // Clear the timeout since we got a response
+      if (pending.timeoutId) {
+        clearTimeout(pending.timeoutId);
+      }
+      
       // CRITICAL FIX: Check if the element is still in the DOM
       if (!pending.element.isConnected) {
         // Element was removed from DOM while translation was in flight
@@ -122,6 +152,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
 
     activeRequests.delete(requestId);
+    sendResponse({ received: true });
+    return true;
+  }
+  
+  if (request.action === "showTranslationModal") {
+    showTranslationModal();
     sendResponse({ received: true });
     return true;
   }
