@@ -1,274 +1,546 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JATTUMNN Settings</title>
+    <link rel="stylesheet" href="settings.css" />
+  </head>
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>JATTUMNN Settings</title>
-  <link rel="stylesheet" href="settings.css">
-</head>
+  <body>
+    <div class="settings-container">
+      <h1>⚙️ JATTUMNN</h1>
 
-<body>
-  <div class="settings-container">
-    <h1>⚙️ JATTUMNN</h1>
-
-    <!-- Tab headers -->
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="settings">Settings</button>
-      <button class="tab-btn" data-tab="prompt">Translation Prompts</button>
-      <button class="tab-btn" data-tab="input-translation">Input Translate Prompts</button>
-      <button class="tab-btn" data-tab="logs">Error Logs</button>
-    </div>
-
-    <!-- Settings Tab -->
-    <div id="settings-tab" class="tab-content active">
-
-      <div class="description">
-        <p>
-          JATTUMNN is a lightweight Chrome extension that lets you translate any text on the web with a single keyboard
-          shortcut.
-          Just hover over the text you want to translate and press <kbd>Alt</kbd> + <kbd>A</kbd> (or your chosen
-          shortcut).
-          Use <kbd>Alt</kbd> + <kbd>Q</kbd> to open the manual translation modal.
-        </p>
-        <p class="credit">
-          Developed by
-          <a href="https://github.com/waiyanminthant" target="_blank" rel="noopener noreferrer">BattlePants</a>
-        </p>
-        <p class="credit">
-          <a href="https://github.com/waiyanminthant/JATTUMNN" target="_blank" rel="noopener noreferrer">🔗 View on
-            GitHub</a>
-        </p>
+      <!-- Tab headers -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="settings">Settings</button>
+        <button class="tab-btn" data-tab="prompt">Translation Prompts</button>
+        <button class="tab-btn" data-tab="input-translation">
+          Input Translate Prompts
+        </button>
+        <button class="tab-btn" data-tab="logs">Error Logs</button>
       </div>
 
-      <!-- User fields -->
-      <div class="field">
-        <label>👤 Username</label>
-        <div class="field-row">
-          <input type="text" id="username" placeholder="Enter username" readonly>
-          <button type="button" class="edit-btn" data-field="username">✏️ Edit</button>
+      <!-- Settings Tab -->
+      <div id="settings-tab" class="tab-content active">
+        <div class="description">
+          <p>
+            JATTUMNN is a lightweight Chrome extension that lets you translate
+            any text on the web with a single keyboard shortcut. Just hover over
+            the text you want to translate and press <kbd>Alt</kbd> +
+            <kbd>A</kbd> (or your chosen shortcut). Use <kbd>Alt</kbd> +
+            <kbd>Q</kbd> to open the manual translation modal.
+          </p>
+          <p class="credit">
+            Developed by
+            <a
+              href="https://github.com/waiyanminthant"
+              target="_blank"
+              rel="noopener noreferrer"
+              >BattlePants</a
+            >
+          </p>
+          <p class="credit">
+            <a
+              href="https://github.com/waiyanminthant/JATTUMNN"
+              target="_blank"
+              rel="noopener noreferrer"
+              >🔗 View on GitHub</a
+            >
+          </p>
         </div>
-      </div>
 
-      <div class="field">
-        <label>🆔 User ID (auto‑generated)</label>
-        <input type="text" id="userId" readonly>
-      </div>
+        <!-- User fields -->
+        <div class="field">
+          <label>👤 Username</label>
+          <div class="field-row">
+            <input
+              type="text"
+              id="username"
+              placeholder="Enter username"
+              readonly
+            />
+            <button type="button" class="edit-btn" data-field="username">
+              ✏️ Edit
+            </button>
+          </div>
+        </div>
 
-      <div class="field">
-        <label>📧 Email</label>
-        <div class="field-row">
-          <input type="email" id="email" placeholder="user@example.com" readonly>
-          <button type="button" class="edit-btn" data-field="email">✏️ Edit</button>
+        <div class="field">
+          <label>🆔 User ID (auto‑generated)</label>
+          <input type="text" id="userId" readonly />
         </div>
-      </div>
 
-      <hr>
+        <div class="field">
+          <label>📧 Email</label>
+          <div class="field-row">
+            <input
+              type="email"
+              id="email"
+              placeholder="user@example.com"
+              readonly
+            />
+            <button type="button" class="edit-btn" data-field="email">
+              ✏️ Edit
+            </button>
+          </div>
+        </div>
 
-      <!-- Provider selector -->
-      <div class="field">
-        <label>🌐 AI Provider</label>
-        <select id="providerSelect" class="model-select">
-          <option value="deepseek">DeepSeek</option>
-          <option value="openai">OpenAI</option>
-          <option value="gemini">Google Gemini</option>
-          <option value="openai_compat">OpenAI-Compatible</option>
-        </select>
-      </div>
+        <hr />
 
-      <!-- OpenAI-Compatible base URL (shown only for openai_compat) -->
-      <div class="field provider-field" id="field-baseUrl" style="display:none;">
-        <label>🔗 Base URL</label>
-        <div class="field-row">
-          <input type="text" id="baseUrl_openai_compat" placeholder="http://localhost:11434" readonly>
-          <button type="button" class="edit-btn" data-field="baseUrl_openai_compat">✏️ Edit</button>
-        </div>
-        <div class="helper-note">
-          💡 The root URL of your OpenAI-compatible server. JATTUMNN will append <code>/v1/chat/completions</code>
-          automatically.
-          Works with Ollama (<code>http://localhost:11434</code>), LM Studio, Groq, Together AI, and more.
-        </div>
-      </div>
-
-      <!-- Per-provider API key fields (one visible at a time) -->
-      <div class="field provider-field" id="field-apiKey-deepseek">
-        <label id="apiKeyLabel">🔑 DeepSeek API Key</label>
-        <div class="field-row">
-          <input type="password" id="apiKey_deepseek" placeholder="sk-..." readonly>
-          <button type="button" class="edit-btn" data-field="apiKey_deepseek">✏️ Edit</button>
-        </div>
-        <div class="helper-note" id="apiKeyNote-deepseek">
-          💡 Get your key from
-          <a href="https://platform.deepseek.com/api_keys" id="apiKeyDocsLink" target="_blank"
-            rel="noopener noreferrer">DeepSeek Platform</a>.
-          (Minimum 2 USD Top Up)
-        </div>
-      </div>
-
-      <div class="field provider-field" id="field-apiKey-openai" style="display:none;">
-        <label>🔑 OpenAI API Key</label>
-        <div class="field-row">
-          <input type="password" id="apiKey_openai" placeholder="sk-..." readonly>
-          <button type="button" class="edit-btn" data-field="apiKey_openai">✏️ Edit</button>
-        </div>
-        <div class="helper-note">
-          💡 Get your key from
-          <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI Platform</a>.
-        </div>
-      </div>
-
-      <div class="field provider-field" id="field-apiKey-gemini" style="display:none;">
-        <label>🔑 Gemini API Key</label>
-        <div class="field-row">
-          <input type="password" id="apiKey_gemini" placeholder="AIza..." readonly>
-          <button type="button" class="edit-btn" data-field="apiKey_gemini">✏️ Edit</button>
-        </div>
-        <div class="helper-note">
-          💡 Get your key from
-          <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer">Google AI
-            Studio</a>.
-        </div>
-      </div>
-
-      <div class="field provider-field" id="field-apiKey-openai_compat" style="display:none;">
-        <label>🔑 API Key <span style="color:#555;font-size:0.75rem;text-transform:none;">(leave blank if not
-            required)</span></label>
-        <div class="field-row">
-          <input type="password" id="apiKey_openai_compat" placeholder="API key (optional)" readonly>
-          <button type="button" class="edit-btn" data-field="apiKey_openai_compat">✏️ Edit</button>
-        </div>
-      </div>
-
-      <!-- Model selector (shared UI, provider-aware underneath) -->
-      <div class="field">
-        <label>🤖 AI Model</label>
-        <div class="field-row">
-          <select id="aiModel" class="model-select" disabled>
-            <option value="">-- Configure provider above and refresh --</option>
+        <!-- Provider selector -->
+        <div class="field">
+          <label>🌐 AI Provider</label>
+          <select id="providerSelect" class="model-select">
+            <option value="deepseek">DeepSeek</option>
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="openai_compat">OpenAI-Compatible</option>
           </select>
-          <button type="button" id="refreshModelsBtn" class="refresh-btn" disabled>🔄 Refresh</button>
         </div>
-        <!-- Manual model input shown when model list fetch fails for openai_compat -->
-        <input type="text" id="manualModel" placeholder="Type model name (e.g. llama3, mistral)"
-          style="display:none; margin-top:8px;">
-        <div class="helper-note" id="modelHelperNote">
-          💡 Save your API key first, then click Refresh to load available models.
+
+        <!-- OpenAI-Compatible base URL (shown only for openai_compat) -->
+        <div
+          class="field provider-field"
+          id="field-baseUrl"
+          style="display: none"
+        >
+          <label>🔗 Base URL</label>
+          <div class="field-row">
+            <input
+              type="text"
+              id="baseUrl_openai_compat"
+              placeholder="http://localhost:11434"
+              readonly
+            />
+            <button
+              type="button"
+              class="edit-btn"
+              data-field="baseUrl_openai_compat"
+            >
+              ✏️ Edit
+            </button>
+          </div>
+          <div class="helper-note">
+            💡 The root URL of your OpenAI-compatible server. JATTUMNN will
+            append <code>/v1/chat/completions</code>
+            automatically. Works with Ollama
+            (<code>http://localhost:11434</code>), LM Studio, Groq, Together AI,
+            and more.
+          </div>
         </div>
-      </div>
 
-      <!-- Translation Cache Statistics -->
-      <div class="cache-panel">
-        <label>📀 Translation Cache</label>
-        <div class="cache-stats">
-          <span id="cacheCount">0</span> translations cached &nbsp;·&nbsp;
-          <span id="cacheSize">0.00</span> MB used
+        <!-- Per-provider API key fields (one visible at a time) -->
+        <div class="field provider-field" id="field-apiKey-deepseek">
+          <label id="apiKeyLabel">🔑 DeepSeek API Key</label>
+          <div class="field-row">
+            <input
+              type="password"
+              id="apiKey_deepseek"
+              placeholder="sk-..."
+              readonly
+            />
+            <button type="button" class="edit-btn" data-field="apiKey_deepseek">
+              ✏️ Edit
+            </button>
+          </div>
+          <div class="helper-note" id="apiKeyNote-deepseek">
+            💡 Get your key from
+            <a
+              href="https://platform.deepseek.com/api_keys"
+              id="apiKeyDocsLink"
+              target="_blank"
+              rel="noopener noreferrer"
+              >DeepSeek Platform</a
+            >. (Minimum 2 USD Top Up)
+          </div>
         </div>
-        <div class="progress-bar">
-          <div id="cacheProgressFill" class="progress-fill"></div>
+
+        <div
+          class="field provider-field"
+          id="field-apiKey-openai"
+          style="display: none"
+        >
+          <label>🔑 OpenAI API Key</label>
+          <div class="field-row">
+            <input
+              type="password"
+              id="apiKey_openai"
+              placeholder="sk-..."
+              readonly
+            />
+            <button type="button" class="edit-btn" data-field="apiKey_openai">
+              ✏️ Edit
+            </button>
+          </div>
+          <div class="helper-note">
+            💡 Get your key from
+            <a
+              href="https://platform.openai.com/api-keys"
+              target="_blank"
+              rel="noopener noreferrer"
+              >OpenAI Platform</a
+            >.
+          </div>
         </div>
-        <button id="clearTransCacheBtn" class="clear-btn" style="margin-top: 8px;">🗑️ Clear Translation Cache</button>
-      </div>
 
-      <hr>
-      <button id="clearCacheBtn" class="clear-btn">🗑️ Clear User Data (Username / Email / All API Keys)</button>
-      <div id="statusMsg" class="status"></div>
-    </div>
-
-    <!-- Translation Prompts Tab (renamed from just "prompt") -->
-    <div id="prompt-tab" class="tab-content">
-      <div class="field">
-        <label>📝 Hover Translation Prompt</label>
-        <textarea id="customPrompt" rows="6"
-          placeholder="Translate to English. For proper nouns translate them to their original English spelling. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations."></textarea>
-        <div class="helper-note">
-          💡 This prompt is used for hover translation (Alt+A). The default is optimized for English output.
-          You can modify it to change style, formality, or target language.
+        <div
+          class="field provider-field"
+          id="field-apiKey-gemini"
+          style="display: none"
+        >
+          <label>🔑 Gemini API Key</label>
+          <div class="field-row">
+            <input
+              type="password"
+              id="apiKey_gemini"
+              placeholder="AIza..."
+              readonly
+            />
+            <button type="button" class="edit-btn" data-field="apiKey_gemini">
+              ✏️ Edit
+            </button>
+          </div>
+          <div class="helper-note">
+            💡 Get your key from
+            <a
+              href="https://aistudio.google.com/app/apikey"
+              target="_blank"
+              rel="noopener noreferrer"
+              >Google AI Studio</a
+            >.
+          </div>
         </div>
-      </div>
-      <div class="field-row">
-        <button id="savePromptBtn" class="save-btn">💾 Save Hover Prompt</button>
-      </div>
-      <div id="promptStatus" class="status"></div>
 
-      <hr style="margin: 20px 0;">
-      
-    </div>
+        <div
+          class="field provider-field"
+          id="field-apiKey-openai_compat"
+          style="display: none"
+        >
+          <label
+            >🔑 API Key
+            <span style="color: #555; font-size: 0.75rem; text-transform: none"
+              >(leave blank if not required)</span
+            ></label
+          >
+          <div class="field-row">
+            <input
+              type="password"
+              id="apiKey_openai_compat"
+              placeholder="API key (optional)"
+              readonly
+            />
+            <button
+              type="button"
+              class="edit-btn"
+              data-field="apiKey_openai_compat"
+            >
+              ✏️ Edit
+            </button>
+          </div>
+        </div>
 
-    <div id="input-translation-tab" class="tab-content">
-      <div class="field">
-        <!-- Modal Translation Settings Section -->
-        <div style="margin: 20px 0 10px 0;">
-          <h3 style="color: #3b82f6; margin-bottom: 15px;">📝 Modal Translation Settings</h3>
-
-          <!-- Default Target Language -->
-          <div class="field">
-            <label>🌐 Default Target Language</label>
-            <select id="defaultTargetLanguage" class="model-select">
-              <option value="th">Thai</option>
-              <option value="en">English</option>
-              <option value="es">Spanish</option>
-              <option value="fr">French</option>
-              <option value="de">German</option>
-              <option value="it">Italian</option>
-              <option value="pt">Portuguese</option>
-              <option value="ru">Russian</option>
-              <option value="zh">Chinese (Simplified)</option>
-              <option value="ja">Japanese</option>
-              <option value="ko">Korean</option>
-              <option value="ar">Arabic</option>
-              <option value="hi">Hindi</option>
+        <!-- Model selector (shared UI, provider-aware underneath) -->
+        <div class="field">
+          <label>🤖 AI Model</label>
+          <div class="field-row">
+            <select id="aiModel" class="model-select" disabled>
+              <option value="">
+                -- Configure provider above and refresh --
+              </option>
             </select>
-            <div class="helper-note">
-              💡 This will be the default language selected when you open the translation modal (Alt+Q).
-            </div>
+            <button
+              type="button"
+              id="refreshModelsBtn"
+              class="refresh-btn"
+              disabled
+            >
+              🔄 Refresh
+            </button>
           </div>
-
-          <!-- Modal Custom Prompt Toggle -->
-          <div class="field">
-            <label>🎯 Use Custom Prompt for Modal</label>
-            <div class="field-row">
-              <input type="checkbox" id="useModalCustomPrompt" style="width: auto; margin-right: 10px;">
-              <span style="color: #aaa;">Enable custom prompt for modal translations</span>
-            </div>
-            <div class="helper-note">
-              💡 When enabled, the modal will use the custom prompt below instead of the language-specific default
-              prompt.
-            </div>
+          <!-- Manual model input shown when model list fetch fails for openai_compat -->
+          <input
+            type="text"
+            id="manualModel"
+            placeholder="Type model name (e.g. llama3, mistral)"
+            style="display: none; margin-top: 8px"
+          />
+          <div class="helper-note" id="modelHelperNote">
+            💡 Save your API key first, then click Refresh to load available
+            models.
           </div>
+        </div>
 
-          <!-- Modal Custom Prompt (hidden by default) -->
-          <div class="field" id="modalPromptField" style="display: none;">
-            <label>📝 Modal Translation Prompt</label>
-            <textarea id="modalCustomPrompt" rows="4"
-              placeholder="Enter custom prompt for modal translations..."></textarea>
-            <div class="helper-note">
-              💡 This prompt will be used for manual translations in the modal. Use {targetLanguage} as a placeholder
-              for
-              the selected language.
-              <br>Example: "Translate to {targetLanguage}. Keep formatting and spacing. Output only the translation."
+        <!-- Translation Cache Statistics -->
+        <div class="cache-panel">
+          <label>📀 Translation Cache</label>
+          <div class="cache-stats">
+            <span id="cacheCount">0</span> translations cached &nbsp;·&nbsp;
+            <span id="cacheSize">0.00</span> MB used
+          </div>
+          <div class="progress-bar">
+            <div id="cacheProgressFill" class="progress-fill"></div>
+          </div>
+          <button
+            id="clearTransCacheBtn"
+            class="clear-btn"
+            style="margin-top: 8px"
+          >
+            🗑️ Clear Translation Cache
+          </button>
+        </div>
+
+        <hr />
+        <button id="clearCacheBtn" class="clear-btn">
+          🗑️ Clear User Data (Username / Email / All API Keys)
+        </button>
+        <div id="statusMsg" class="status"></div>
+      </div>
+
+      <!-- Translation Prompts Tab (renamed from just "prompt") -->
+      <div id="prompt-tab" class="tab-content">
+        <div class="field">
+          <label>📝 Hover Translation Prompt</label>
+          <textarea
+            id="customPrompt"
+            rows="6"
+            placeholder="Translate to English. For proper nouns translate them to their original English spelling. Keep formatting, spacing, and the separator '__SEP__' unchanged. Output only the translation, no explanations."
+          ></textarea>
+          <div class="helper-note">
+            💡 This prompt is used for hover translation (Alt+A). The default is
+            optimized for English output. You can modify it to change style,
+            formality, or target language.
+          </div>
+        </div>
+        <div class="field-row">
+          <button id="savePromptBtn" class="save-btn">
+            💾 Save Hover Prompt
+          </button>
+        </div>
+        <div id="promptStatus" class="status"></div>
+
+        <hr style="margin: 20px 0" />
+      </div>
+
+      <!-- Input Translate Prompts Tab (Modal Settings) -->
+      <div id="input-translation-tab" class="tab-content">
+        <div class="field">
+          <!-- Modal Translation Settings Section -->
+          <div style="margin: 20px 0 10px 0">
+            <h3 style="color: #3b82f6; margin-bottom: 15px">
+              📝 Modal Translation Settings
+            </h3>
+
+            <!-- Default Target Language -->
+            <div class="field">
+              <label>🌐 Default Target Language</label>
+              <select id="defaultTargetLanguage" class="model-select">
+                <option value="th">Thai</option>
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="it">Italian</option>
+                <option value="pt">Portuguese</option>
+                <option value="ru">Russian</option>
+                <option value="zh">Chinese (Simplified)</option>
+                <option value="ja">Japanese</option>
+                <option value="ko">Korean</option>
+                <option value="ar">Arabic</option>
+                <option value="hi">Hindi</option>
+              </select>
+              <div class="helper-note">
+                💡 This will be the default language selected when you open the
+                translation modal (Alt+Q).
+              </div>
             </div>
+
+            <!-- Global Custom Prompt Toggle -->
+            <div class="field">
+              <label>🎯 Use Global Custom Prompt</label>
+              <div class="field-row">
+                <label
+                  class="jattumnn-toggle"
+                  style="display: flex; align-items: center; cursor: pointer"
+                >
+                  <input
+                    type="checkbox"
+                    id="useModalCustomPrompt"
+                    style="display: none"
+                  />
+                  <div class="jattumnn-toggle-slider"></div>
+                  <span style="color: #aaa; margin-left: 12px"
+                    >Enable global custom prompt for modal translations</span
+                  >
+                </label>
+              </div>
+              <div class="helper-note">
+                💡 When enabled, the modal will use the global custom prompt
+                below instead of language-specific defaults. When disabled, you
+                can set custom prompts per language below.
+              </div>
+            </div>
+
+            <!-- Global Custom Prompt (shown when toggle is enabled) -->
+            <div class="field" id="globalPromptField" style="display: none">
+              <label>📝 Global Modal Translation Prompt</label>
+              <textarea
+                id="modalCustomPrompt"
+                rows="4"
+                placeholder="Enter global custom prompt for modal translations..."
+              ></textarea>
+              <div class="helper-note">
+                💡 This prompt will be used for ALL manual translations when
+                global custom prompt is enabled. Use {targetLanguage} as a
+                placeholder for the selected language.
+                <br />Example: "Translate to {targetLanguage}. Keep formatting
+                and spacing. Output only the translation."
+              </div>
+            </div>
+
+            <!-- Language-Specific Prompts Section -->
+            <div id="languageSpecificPromptsSection" style="margin-top: 20px">
+              <h3
+                style="color: #3b82f6; margin-bottom: 15px; font-size: 1.1rem"
+              >
+                🌍 Language-Specific Prompts
+              </h3>
+
+              <div class="field">
+                <label>Select Language</label>
+                <select id="languagePromptSelector" class="model-select">
+                  <option value="th">Thai</option>
+                  <option value="en">English</option>
+                  <option value="es">Spanish</option>
+                  <option value="fr">French</option>
+                  <option value="de">German</option>
+                  <option value="it">Italian</option>
+                  <option value="pt">Portuguese</option>
+                  <option value="ru">Russian</option>
+                  <option value="zh">Chinese (Simplified)</option>
+                  <option value="ja">Japanese</option>
+                  <option value="ko">Korean</option>
+                  <option value="ar">Arabic</option>
+                  <option value="hi">Hindi</option>
+                </select>
+                <div class="helper-note">
+                  💡 Select a language to set a custom prompt specific to that
+                  language.
+                </div>
+              </div>
+
+              <div class="field" id="languagePromptField">
+                <label
+                  >Custom Prompt for
+                  <span id="selectedLanguageName">Thai</span></label
+                >
+                <textarea
+                  id="languageCustomPrompt"
+                  rows="4"
+                  placeholder="Enter custom prompt for this language..."
+                ></textarea>
+                <div class="helper-note">
+                  💡 Use {targetLanguage} as a placeholder for the language
+                  name.
+                  <br />Example: "Translate to {targetLanguage} using polite and
+                  formal language."
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 10px">
+                  <button
+                    id="saveLanguagePromptBtn"
+                    class="save-btn"
+                    style="width: auto; padding: 8px 16px"
+                  >
+                    💾 Save for This Language
+                  </button>
+                  <button
+                    id="resetLanguagePromptBtn"
+                    class="clear-btn"
+                    style="width: auto; padding: 8px 16px"
+                  >
+                    🔄 Reset to Default
+                  </button>
+                </div>
+                <div
+                  id="languagePromptStatus"
+                  class="status"
+                  style="margin-top: 8px"
+                ></div>
+              </div>
+
+              <div
+                id="customPromptsSummary"
+                style="
+                  margin-top: 20px;
+                  padding: 12px;
+                  background: #0d0d0d;
+                  border-radius: 8px;
+                  border: 1px solid #333;
+                "
+              >
+                <div
+                  style="color: #aaa; font-size: 0.85rem; margin-bottom: 8px"
+                >
+                  📋 Languages with custom prompts:
+                </div>
+                <div
+                  id="customPromptsList"
+                  style="
+                    color: #3b82f6;
+                    font-size: 0.85rem;
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 8px;
+                  "
+                >
+                  <!-- Will be filled dynamically -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Save button for modal settings -->
+            <div class="field-row" style="margin-top: 20px">
+              <button id="saveModalSettingsBtn" class="save-btn">
+                💾 Save All Modal Settings
+              </button>
+            </div>
+            <div id="modalSettingsStatus" class="status"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Error Logs Tab -->
+      <div id="logs-tab" class="tab-content">
+        <div class="field">
+          <label>📋 Error Logs</label>
+          <div
+            class="log-controls"
+            style="display: flex; gap: 10px; margin-bottom: 10px"
+          >
+            <button id="exportLogsBtn" class="save-btn" style="width: auto">
+              📥 Export Logs
+            </button>
+            <button id="clearLogsBtn" class="clear-btn" style="width: auto">
+              🗑️ Clear Logs
+            </button>
+          </div>
+          <div
+            id="logContainer"
+            style="
+              max-height: 400px;
+              overflow-y: auto;
+              background: #0d0d0d;
+              border-radius: 6px;
+              padding: 10px;
+              font-family: monospace;
+              font-size: 12px;
+            "
+          >
+            <div style="color: #888">Loading logs...</div>
           </div>
         </div>
       </div>
     </div>
-
-    <!-- Error Logs Tab -->
-    <div id="logs-tab" class="tab-content">
-      <div class="field">
-        <label>📋 Error Logs</label>
-        <div class="log-controls" style="display: flex; gap: 10px; margin-bottom: 10px;">
-          <button id="exportLogsBtn" class="save-btn" style="width: auto;">📥 Export Logs</button>
-          <button id="clearLogsBtn" class="clear-btn" style="width: auto;">🗑️ Clear Logs</button>
-        </div>
-        <div id="logContainer"
-          style="max-height: 400px; overflow-y: auto; background: #0d0d0d; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px;">
-          <div style="color: #888;">Loading logs...</div>
-        </div>
-      </div>
-    </div>
-
-  </div>
-  <script src="settings.js"></script>
-</body>
-
+    <script src="settings.js"></script>
+  </body>
 </html>

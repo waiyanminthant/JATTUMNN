@@ -352,3 +352,72 @@ textarea:focus {
   font-size: 0.8em;
   color: #93c5fd;
 }
+
+/* Toggle Switch Styles */
+.jattumnn-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+}
+
+.jattumnn-toggle-slider {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+  background-color: #333;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.jattumnn-toggle-slider::before {
+  content: "";
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  left: 2px;
+  top: 2px;
+  background-color: #aaa;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.jattumnn-toggle input:checked + .jattumnn-toggle-slider {
+  background-color: #3b82f6;
+}
+
+.jattumnn-toggle input:checked + .jattumnn-toggle-slider::before {
+  transform: translateX(20px);
+  background-color: white;
+}
+
+.jattumnn-toggle:hover .jattumnn-toggle-slider::before {
+  transform: scale(1.1);
+}
+
+.jattumnn-toggle input:checked:hover + .jattumnn-toggle-slider::before {
+  transform: translateX(20px) scale(1.1);
+}
+
+/* Custom prompts summary badges */
+.prompt-badge {
+  display: inline-block;
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  color: #3b82f6;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.prompt-badge:hover {
+  background: rgba(59, 130, 246, 0.3);
+  transform: translateY(-1px);
+}
+

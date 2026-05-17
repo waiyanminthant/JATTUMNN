@@ -9,8 +9,9 @@
       "resources": [
         "content.js", 
         "modules/*.js", 
-        "ui/modal.css",
-        "ui/modal.html"
+        "ui/*.css",
+        "ui/*.html",
+        "ui/*.js"
       ],
       "matches": ["<all_urls>"]
     }
