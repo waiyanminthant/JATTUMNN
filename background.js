@@ -1,6 +1,7 @@
 import { logError, clearErrorLog, getErrorLog } from "./modules/errorLogger.js";
 import { handleHoverTranslation, translateInputText } from "./modules/translationHandler.js";
 import { clearTranslationCache } from "./modules/translationCache.js";
+import { checkForUpdate, getUpdateStatus } from "./modules/updateChecker.js";
 
 const ACTIONS = {
   CLEAR_CACHE: "clearTranslationCache",
@@ -8,6 +9,8 @@ const ACTIONS = {
   GET_ERROR_LOG: "getErrorLog",
   CLEAR_ERROR_LOG: "clearErrorLog",
   TRANSLATE_INPUT: "translateInputText",
+  CHECK_UPDATE: "checkUpdate",
+  GET_UPDATE_STATUS: "getUpdateStatus",
 };
 
 const INPUT_TRANSLATION_TIMEOUT = 5000;
@@ -18,6 +21,10 @@ function respondAsync(sendResponse, fn) {
     .catch((error) => sendResponse({ success: false, error: error.message }));
   return true;
 }
+
+chrome.runtime.onInstalled.addListener(() => {
+  checkForUpdate();
+});
 
 chrome.commands.onCommand.addListener(async (command) => {
   switch (command) {
@@ -62,6 +69,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return respondAsync(sendResponse, () => clearErrorLog());
     case ACTIONS.TRANSLATE_INPUT:
       return handleInputTranslationRequest(message, sendResponse);
+    case ACTIONS.CHECK_UPDATE:
+      return respondAsync(sendResponse, async () => {
+        const result = await checkForUpdate();
+        return { update: result, success: true };
+      });
+    case ACTIONS.GET_UPDATE_STATUS:
+      return respondAsync(sendResponse, async () => {
+        const status = await getUpdateStatus();
+        return { status, success: true };
+      });
     default:
       console.warn("Background: unknown message action received:", message.action);
   }

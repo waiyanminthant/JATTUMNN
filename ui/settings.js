@@ -822,11 +822,60 @@ async function clearErrorLogs() {
   }
 }
 
+async function displayUpdateStatus() {
+  const currentEl = document.getElementById("currentVersion");
+  const latestEl = document.getElementById("latestVersion");
+  const statusEl = document.getElementById("updateStatus");
+  if (!currentEl || !latestEl || !statusEl) return;
+
+  const res = await chrome.runtime.sendMessage({ action: "getUpdateStatus" });
+  const status = res?.status;
+  currentEl.textContent = chrome.runtime.getManifest().version;
+
+  if (!status || status.error) {
+    latestEl.textContent = "?";
+    statusEl.className = "update-status";
+    statusEl.style.display = "none";
+    return;
+  }
+
+  latestEl.textContent = status.latestVersion || "?";
+
+  if (status.updateAvailable) {
+    statusEl.className = "update-status update-available";
+    statusEl.innerHTML =
+      `⚠️ New version <strong>${status.latestVersion}</strong> available! ` +
+      `<a href="https://github.com/waiyanminthant/JATTUMNN" ` +
+      `target="_blank" rel="noopener noreferrer" ` +
+      `style="color: #60a5fa; text-decoration: underline;">Download from GitHub</a>`;
+  } else {
+    statusEl.className = "update-status up-to-date";
+    statusEl.textContent = "✅ You're up to date!";
+  }
+}
+
+async function checkForUpdates() {
+  const statusEl = document.getElementById("updateStatus");
+  if (!statusEl) return;
+
+  statusEl.className = "update-status checking";
+  statusEl.textContent = "⏳ Checking for updates...";
+
+  const res = await chrome.runtime.sendMessage({ action: "checkUpdate" });
+  if (res?.success) {
+    await displayUpdateStatus();
+  } else {
+    statusEl.className = "update-status error";
+    statusEl.textContent = "❌ Failed to check for updates. Check your internet connection.";
+  }
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
   console.log("[JATTUMNN] Settings page loaded");
 
   await loadSettings();
   await updateCacheStats();
+  await displayUpdateStatus();
 
   // Setup user fields
   setupField("username");
@@ -949,13 +998,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       switchTab(tabId);
       if (tabId === "logs") loadErrorLogs();
       if (tabId === "input-translation") {
-        // Refresh the custom prompts summary when switching to this tab
         updateCustomPromptsSummary();
         const currentLang = languagePromptSelector?.value;
         if (currentLang) loadLanguagePrompt(currentLang);
       }
     });
   });
+
+  // Check for updates button
+  const checkUpdateBtn = document.getElementById("checkUpdateBtn");
+  if (checkUpdateBtn) {
+    checkUpdateBtn.addEventListener("click", checkForUpdates);
+  }
 
   // Log buttons
   const exportLogsBtn = document.getElementById("exportLogsBtn");

@@ -1,6 +1,6 @@
 export class TranslationCache {
-  constructor(maxEntries = 2000) {
-    this.maxEntries = maxEntries;
+  constructor(maxBytes = 5 * 1024 * 1024) {
+    this.maxBytes = maxBytes;
   }
 
   _sortKeys(obj) {
@@ -59,18 +59,18 @@ export class TranslationCache {
     if (existingIdx !== -1) recent.splice(existingIdx, 1);
     recent.unshift(key);
 
-    while (recent.length > this.maxEntries) {
+    const stableContext = JSON.parse(this._stableStringify(context));
+    await chrome.storage.local.set({
+      [key]: { originalText, translatedText, context: stableContext }
+    });
+
+    while (recent.length > 0) {
+      const bytesInUse = await chrome.storage.local.getBytesInUse(recent);
+      if (bytesInUse <= this.maxBytes) break;
       const oldestKey = recent.pop();
       await chrome.storage.local.remove(oldestKey);
     }
-
-    const stableContext = JSON.parse(this._stableStringify(context));
-    await Promise.all([
-      chrome.storage.local.set({
-        [key]: { originalText, translatedText, context: stableContext }
-      }),
-      this._saveRecentKeys(recent),
-    ]);
+    await this._saveRecentKeys(recent);
   }
 
   async clear() {

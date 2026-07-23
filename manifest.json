@@ -4,6 +4,7 @@
   "version": "0.2.0",
   "description": "Just Another Translate Tool U Might Not Need",
   "permissions": ["activeTab", "storage"],
+  "host_permissions": ["https://raw.githubusercontent.com/*"],
   "web_accessible_resources": [
     {
       "resources": [
