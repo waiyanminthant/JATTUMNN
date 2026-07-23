@@ -1156,16 +1156,31 @@ async function resetLanguagePrompt() {
   const language = document.getElementById("languagePromptSelector")?.value;
   if (!language) return;
 
+  const langName = LANGUAGE_NAMES[language] || language;
+  if (!confirm(`Reset the custom prompt for ${langName} to the default?`)) return;
+
   const defaultPrompt =
     DEFAULT_LANGUAGE_PROMPTS[language] ||
-    `Translate to ${LANGUAGE_NAMES[language] || language}. Keep formatting and spacing. Output only the translation.`;
+    `Translate to ${langName}. Keep formatting and spacing. Output only the translation.`;
 
   const textarea = document.getElementById("languageCustomPrompt");
   if (textarea) {
     textarea.value = defaultPrompt;
   }
 
-  await saveLanguagePrompt();
+  const result = await chrome.storage.local.get(["languagePrompts"]);
+  const languagePrompts = result.languagePrompts || {};
+  delete languagePrompts[language];
+  await chrome.storage.local.set({ languagePrompts });
+
+  const statusEl = document.getElementById("languagePromptStatus");
+  if (statusEl) {
+    statusEl.textContent = `🔄 Reset to default for ${langName}`;
+    statusEl.style.color = "#4ade80";
+    setTimeout(() => { statusEl.textContent = ""; }, LANGUAGE_PROMPT_STATUS_TIMEOUT);
+  }
+
+  await updateCustomPromptsSummary();
 }
 
 async function initializeDefaults() {
